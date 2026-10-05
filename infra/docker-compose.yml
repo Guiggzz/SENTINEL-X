@@ -86,6 +86,8 @@ services:
       SESSION_SECRET: ${SESSION_SECRET}
     volumes:
       - ./certs/ca.crt:/certs/ca.crt:ro
+    # Galerie visages : disque de l'hôte (vision/data/gallery), lue par sentinel-vision.
+    # L'API authentifie /api/v1/faces et proxifie vers VISION_BASE_URL. Pas de volume ici.
     depends_on:
       db:
         condition: service_healthy

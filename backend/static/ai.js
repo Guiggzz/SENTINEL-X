@@ -234,6 +234,7 @@
       if (msg.channel === "risk" && msg.data && typeof msg.data === "object") onRisk(msg.data);
       else if (msg.channel === "settings" && msg.data) {
         if ("person_alarm_enabled" in msg.data) applyPerson(msg.data.person_alarm_enabled);
+        if ("face_alarm_enabled" in msg.data && window.applyFaceAlarm) window.applyFaceAlarm(msg.data.face_alarm_enabled);
         if (msg.data.sources) applySources(msg.data.sources);
       }
     };

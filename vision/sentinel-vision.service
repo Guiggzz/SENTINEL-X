@@ -24,6 +24,8 @@ Environment=OMP_NUM_THREADS=2
 Environment=MKL_NUM_THREADS=2
 Environment=OPENBLAS_NUM_THREADS=2
 Environment=TORCH_NUM_THREADS=2
+Environment=SENTINEL_FACE_THRESHOLD=0.363
+Environment=SENTINEL_FACE_DEBOUNCE=1.5
 
 [Install]
 WantedBy=default.target

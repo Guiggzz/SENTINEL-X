@@ -73,6 +73,8 @@ Thumbs.db
 
 # --- Vision / ML large binaries (keep deliverable model) ---
 vision/*.pt
+vision/data/
+vision/models/*.onnx
 vision/runs/
 vision/snapshot_preview.jpg
 vision/*.png
