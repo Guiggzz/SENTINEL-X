@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SENTINEL-X · EPSI Workshop</title>
+  <link rel="stylesheet" href="/static/style.css?v=10" />
+  <script src="/static/vendor/chart.umd.min.js"></script>
+  <script>
+    window.Chart || document.write('<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"><\/script>');
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div>
+        <div class="brand-title">SENTINEL-X</div>
+        <div class="brand-sub">Boîtier de surveillance — EPSI Workshop</div>
+      </div>
+    </div>
+    <div class="top-meta">
+      <span id="connBadge" class="badge offline">WS déconnecté</span>
+      <span id="clock" class="clock">--:--:--</span>
+    </div>
+  </header>
+
+  <div id="alarmBanner" class="alarm-banner" hidden>
+    <span id="alarmTitle" class="alarm-title">ALERTE GAZ / FUMÉE</span>
+    <span id="alarmDetail" class="alarm-detail"></span>
+  </div>
+
+  <main class="layout">
+    <section class="status-strip">
+      <div class="stat">
+        <span class="label">Nœud</span>
+        <p id="stNode" class="value muted">—</p>
+      </div>
+      <div class="stat">
+        <span class="label">Présence</span>
+        <p id="stPresence" class="value muted">—</p>
+      </div>
+      <div class="stat">
+        <span class="label">Buzzer</span>
+        <p id="stBuzzer" class="value muted">—</p>
+      </div>
+      <div class="stat">
+        <span class="label">LED rouge</span>
+        <p id="stLedRed" class="value muted">—</p>
+      </div>
+      <div class="stat">
+        <span class="label">LED verte</span>
+        <p id="stLedGreen" class="value muted">—</p>
+      </div>
+      <div class="stat">
+        <span class="label">Wi-Fi RSSI</span>
+        <p id="stRssi" class="value muted">—</p>
+      </div>
+      <div class="stat wide">
+        <span class="label">Dernière mise à jour</span>
+        <p id="stUpdated" class="value muted">—</p>
+      </div>
+    </section>
+
+    <section class="charts">
+      <article class="panel">
+        <h2>Température (°C)</h2>
+        <canvas id="chartTemp"></canvas>
+      </article>
+      <article class="panel">
+        <h2>Humidité (%)</h2>
+        <canvas id="chartHum"></canvas>
+      </article>
+      <article class="panel">
+        <h2>Gaz (brut)</h2>
+        <canvas id="chartGas"></canvas>
+      </article>
+    </section>
+
+    <section class="ai-row">
+      <article class="panel ai-panel">
+        <h2>Analyse IA — maintenance prédictive <span class="h-note">Isolation Forest · scikit-learn</span></h2>
+        <div class="ai-grid">
+          <div class="ai-main">
+            <span class="label">Risque</span>
+            <p id="aiRisk" class="ai-risk">—</p>
+            <span class="label">État</span>
+            <p id="aiState" class="ai-state">—</p>
+          </div>
+          <div class="ai-spark-wrap">
+            <canvas id="aiSpark"></canvas>
+          </div>
+          <dl class="ai-meta">
+            <dt>Équipement</dt><dd id="aiDevice">—</dd>
+            <dt>Features dominantes</dt><dd id="aiTop">—</dd>
+            <dt>Modèle</dt><dd id="aiModel">—</dd>
+            <dt>Inférence</dt><dd id="aiInfer">—</dd>
+          </dl>
+        </div>
+      </article>
+      <article class="panel vis-panel">
+        <h2>Vision IA — YOLOv8n CPU</h2>
+        <span class="label">Inférence / trame</span>
+        <p id="visInfer" class="mco-v big">—</p>
+        <p id="visDetail" class="mco-sub">—</p>
+        <p class="mco-sub"><span id="visFrame">—</span> · personnes <span id="visPersons">—</span></p>
+        <p class="mco-sub">objectif &lt; 100 ms</p>
+      </article>
+      <article class="panel mco-panel">
+        <h2>MCO hôte <span class="h-note">/proc lu depuis sentinel-api</span></h2>
+        <div class="mco-bars">
+          <div><span class="label">CPU</span><p id="mcoCpu" class="mco-v">—</p><div class="bar"><i id="mcoCpuBar"></i></div></div>
+          <div><span class="label">RAM</span><p id="mcoRam" class="mco-v">—</p><div class="bar"><i id="mcoRamBar"></i></div></div>
+          <div><span class="label">Disque</span><p id="mcoDisk" class="mco-v">—</p><div class="bar"><i id="mcoDiskBar"></i></div></div>
+          <div><span class="label">MQTT</span><p id="mcoMsgs" class="mco-v">—</p></div>
+        </div>
+        <p id="mcoLoad" class="mco-sub">—</p>
+        <ul id="mcoServices" class="mco-services"></ul>
+      </article>
+    </section>
+
+    <section class="bottom">
+      <article class="panel controls">
+        <h2>Panneau de contrôle</h2>
+                <div class="toggle-row">
+          <span class="toggle-label">Alarme présence <span class="h-note">sources cochées → sirène « intrus »</span></span>
+          <span id="personState" class="toggle-state">—</span>
+          <button id="personToggle" class="switch" aria-pressed="false" aria-label="Armer / désarmer l'alarme présence"><i></i></button>
+        </div>
+        <div class="sources" id="alarmSources">
+          <span class="sources-title">Sources d'alarme</span>
+          <label class="src"><input type="checkbox" data-src="pir" checked /> PIR (présence)</label>
+          <label class="src"><input type="checkbox" data-src="vision" checked /> Caméra (YOLO)</label>
+          <label class="src"><input type="checkbox" data-src="gaz_ia" checked /> IA gaz / fumée</label>
+          <label class="src"><input type="checkbox" data-src="thermique_ia" checked /> IA thermique</label>
+        </div>
+<div class="btn-grid">
+          <button data-cmd='{"action":"beep"}'>Bip</button>
+          <button data-cmd='{"action":"buzzer_on","duration_ms":30000,"song":"paquetta"}' class="warn">Alarme Paquetta (30 s)</button>
+          <button data-cmd='{"action":"buzzer_on","duration_ms":20000,"song":"rickroll"}' class="warn">Alarme Rickroll (20 s)</button>
+          <button data-cmd='{"action":"buzzer_on","duration_ms":10000,"song":"gaz"}' class="warn">Test sirène gaz (10 s)</button>
+          <button data-cmd='{"action":"buzzer_on","duration_ms":10000,"song":"intrus"}' class="warn">Test sirène intrus (10 s)</button>
+          <button data-cmd='{"action":"buzzer_off"}' class="stop">Couper alarme</button>
+          <button data-cmd='{"action":"led","color":"red","state":true}' class="red">LED rouge ON</button>
+          <button data-cmd='{"action":"led","color":"red","state":false}' class="red">LED rouge OFF</button>
+          <button data-cmd='{"action":"led","color":"green","state":true}' class="green">LED verte ON</button>
+          <button data-cmd='{"action":"led","color":"green","state":false}' class="green">LED verte OFF</button>
+          <button data-cmd='{"action":"led_auto"}'>LEDs auto</button>
+        </div>
+        <p id="cmdFeedback" class="feedback"></p>
+      </article>
+
+      <article class="panel camera">
+        <h2>Caméra</h2>
+        <div class="cam-wrap">
+          <img id="camFeed" alt="Flux caméra indisponible" width="782" height="440" />
+          <div id="camFallback" class="cam-fallback">Flux indisponible</div>
+        </div>
+        <p class="hint">Flux MJPEG · <code>/cam/snapshot.jpg (≈5 FPS)</code> · surcharge via <code>?cam=</code></p>
+      </article>
+
+      <article class="panel log">
+        <h2>Journal d'événements</h2>
+        <ul id="eventLog"></ul>
+      </article>
+    </section>
+  </main>
+
+  <footer>
+    EPSI Workshop · SENTINEL-X · MQTT / WebSocket
+  </footer>
+  <script src="/static/app.js?v=10"></script>
+  <script src="/static/ai.js?v=10"></script>
+</body>
+</html>

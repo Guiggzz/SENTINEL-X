@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SENTINEL-X · AetherCorp</title>
+  <link rel="stylesheet" href="/static/style.css?v=4" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">SX</div>
+      <div>
+        <div class="brand-title">SENTINEL-X</div>
+        <div class="brand-sub">AetherCorp · Centre de commande</div>
+      </div>
+    </div>
+    <div class="top-meta">
+      <span id="connBadge" class="badge offline">WS déconnecté</span>
+      <span id="clock" class="clock">--:--:--</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="cards">
+      <article class="card"><h3>Nœud</h3><p id="stNode" class="value muted">—</p></article>
+      <article class="card"><h3>Présence</h3><p id="stPresence" class="value muted">—</p></article>
+      <article class="card"><h3>Buzzer</h3><p id="stBuzzer" class="value muted">—</p></article>
+      <article class="card"><h3>LED rouge</h3><p id="stLedRed" class="value muted">—</p></article>
+      <article class="card"><h3>LED verte</h3><p id="stLedGreen" class="value muted">—</p></article>
+      <article class="card"><h3>Wi-Fi RSSI</h3><p id="stRssi" class="value muted">—</p></article>
+      <article class="card wide"><h3>Dernière mise à jour</h3><p id="stUpdated" class="value muted">—</p></article>
+    </section>
+
+    <section class="charts">
+      <article class="panel">
+        <h2>Température (°C)</h2>
+        <canvas id="chartTemp"></canvas>
+      </article>
+      <article class="panel">
+        <h2>Humidité (%)</h2>
+        <canvas id="chartHum"></canvas>
+      </article>
+      <article class="panel">
+        <h2>Gaz (brut)</h2>
+        <canvas id="chartGas"></canvas>
+      </article>
+    </section>
+
+    <section class="bottom">
+      <article class="panel controls">
+        <h2>Panneau de contrôle</h2>
+        <div class="btn-grid">
+          <button data-cmd='{"action":"beep"}'>Bip</button>
+          <button data-cmd='{"action":"buzzer_on","duration_ms":30000,"song":"paquetta"}' class="warn">Alarme Paquetta (30 s)</button>
+          <button data-cmd='{"action":"buzzer_on","duration_ms":20000,"song":"rickroll"}' class="warn">Alarme Rickroll (20 s)</button>
+          <button data-cmd='{"action":"buzzer_off"}'>Couper alarme</button>
+          <button data-cmd='{"action":"led","color":"red","state":true}' class="red">LED rouge ON</button>
+          <button data-cmd='{"action":"led","color":"red","state":false}' class="red">LED rouge OFF</button>
+          <button data-cmd='{"action":"led","color":"green","state":true}' class="green">LED verte ON</button>
+          <button data-cmd='{"action":"led","color":"green","state":false}' class="green">LED verte OFF</button>
+          <button data-cmd='{"action":"led_auto"}'>LEDs auto</button>
+        </div>
+        <p id="cmdFeedback" class="feedback"></p>
+      </article>
+
+      <article class="panel camera">
+        <h2>Flux caméra IA</h2>
+        <div class="cam-wrap">
+          <img id="camFeed" alt="Flux caméra IA indisponible" />
+          <div id="camFallback" class="cam-fallback">Flux indisponible</div>
+        </div>
+        <p class="hint">Webcam UGREEN en 440p avec détection YOLO sur <code>:8081/stream.mjpg</code>. Surcharge possible via <code>?cam=</code> ou localStorage <code>sentinelCamUrl</code>.</p>
+      </article>
+
+      <article class="panel log">
+        <h2>Journal d'événements</h2>
+        <ul id="eventLog"></ul>
+      </article>
+    </section>
+  </main>
+
+  <footer>
+    EPSI Workshop · SENTINEL-X · Données temps réel via MQTT / WebSocket
+  </footer>
+  <script src="/static/app.js?v=4"></script>
+</body>
+</html>
