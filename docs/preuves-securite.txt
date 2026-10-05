@@ -1,0 +1,102 @@
+===== SENTINEL-X verify.sh 2026-10-05T14:07:39+02:00 =====
+
+### Écoute réseau (ss -tlnp)
+State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess                             
+LISTEN 0      4096   127.0.0.53%lo:53         0.0.0.0:*                                       
+LISTEN 0      4096       127.0.0.1:3000       0.0.0.0:*                                       
+LISTEN 0      4096      127.0.0.54:53         0.0.0.0:*                                       
+LISTEN 0      4096       127.0.0.1:631        0.0.0.0:*                                       
+LISTEN 0      5            0.0.0.0:8081       0.0.0.0:*    users:(("python",pid=109564,fd=5)) 
+LISTEN 0      4096         0.0.0.0:9090       0.0.0.0:*                                       
+LISTEN 0      511        127.0.0.1:6463       0.0.0.0:*    users:(("Discord",pid=12547,fd=67))
+LISTEN 0      4096         0.0.0.0:8883       0.0.0.0:*                                       
+LISTEN 0      50           0.0.0.0:445        0.0.0.0:*                                       
+LISTEN 0      4096         0.0.0.0:443        0.0.0.0:*                                       
+LISTEN 0      50           0.0.0.0:139        0.0.0.0:*                                       
+LISTEN 0      4096       127.0.0.1:39645      0.0.0.0:*                                       
+LISTEN 0      4096         0.0.0.0:3002       0.0.0.0:*                                       
+LISTEN 0      200        127.0.0.1:5432       0.0.0.0:*                                       
+LISTEN 0      4096         0.0.0.0:3100       0.0.0.0:*                                       
+LISTEN 0      4096           [::1]:631           [::]:*                                       
+LISTEN 0      4096            [::]:9090          [::]:*                                       
+LISTEN 0      4096            [::]:8883          [::]:*                                       
+LISTEN 0      50              [::]:445           [::]:*                                       
+LISTEN 0      4096            [::]:443           [::]:*                                       
+LISTEN 0      50              [::]:139           [::]:*                                       
+LISTEN 0      511                *:80               *:*                                       
+LISTEN 0      4096            [::]:3002          [::]:*                                       
+LISTEN 0      4096            [::]:3100          [::]:*                                       
+
+### UFW (si root)
+(skip — pas root ou ufw absent ; lancer: sudo ufw status verbose)
+
+### nmap 172.20.10.4
+nmap non installé — noter pour la démo jury
+
+### openssl s_client MQTTS :8883
+subject=C = FR, O = SENTINEL-X, OU = EPSI-M1, CN = sentinel.local
+issuer=C = FR, O = SENTINEL-X, OU = EPSI-M1, CN = SENTINEL-X Local CA
+notBefore=Oct  5 12:01:45 2026 GMT
+notAfter=Oct  4 12:01:45 2028 GMT
+New, TLSv1.3, Cipher is TLS_AES_256_GCM_SHA384
+Verify return code: 19 (self-signed certificate in certificate chain)
+
+### openssl s_client HTTPS :443
+subject=C = FR, O = SENTINEL-X, OU = EPSI-M1, CN = sentinel.local
+issuer=C = FR, O = SENTINEL-X, OU = EPSI-M1, CN = SENTINEL-X Local CA
+notBefore=Oct  5 12:01:45 2026 GMT
+notAfter=Oct  4 12:01:45 2028 GMT
+New, TLSv1.3, Cipher is TLS_AES_128_GCM_SHA256
+Verify return code: 21 (unable to verify the first certificate)
+    Protocol  : TLSv1.3
+    Cipher    : TLS_AES_128_GCM_SHA256
+    Verify return code: 21 (unable to verify the first certificate)
+
+### MQTT anonyme refusé (8883)
+Error: /dev/null is not a file.Error: Problem setting TLS options: File not found.
+OK: anonyme refusé (ou TLS requis)
+
+### Port 1883 fermé sur l'hôte
+OK: 1883 fermé / non joignable
+
+### docker inspect résumé (sentinel-*)
+--- sentinel-mosquitto ---
+User= Readonly=false CapDrop=null CapAdd=null SecurityOpt=["no-new-privileges:true"] Memory=134217728 NanoCPUs=500000000 PidsLimit=100
+--- sentinel-ml ---
+User=sentinel Readonly=true CapDrop=["ALL"] CapAdd=null SecurityOpt=["no-new-privileges:true"] Memory=805306368 NanoCPUs=1000000000 PidsLimit=200
+--- sentinel-api ---
+User=sentinel Readonly=true CapDrop=["ALL"] CapAdd=null SecurityOpt=["no-new-privileges:true"] Memory=536870912 NanoCPUs=1000000000 PidsLimit=200
+--- sentinel-proxy ---
+User= Readonly=true CapDrop=["ALL"] CapAdd=["CAP_NET_BIND_SERVICE"] SecurityOpt=["no-new-privileges:true"] Memory=134217728 NanoCPUs=500000000 PidsLimit=100
+--- sentinel-db ---
+User= Readonly=false CapDrop=null CapAdd=null SecurityOpt=["no-new-privileges:true"] Memory=536870912 NanoCPUs=1000000000 PidsLimit=200
+
+### Preuve Wireshark (manuel)
+Filtrer: tcp.port==8883 — payload MQTT illisible (chiffré TLS).
+Sans root, tcpdump non disponible ; capture jury avec Wireshark sur le hotspot.
+
+===== fin verify.sh =====
+
+### UFW status (après pkexec)
+Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), deny (routed)
+New profiles: skip
+
+To                         Action      From
+--                         ------      ----
+443/tcp                    ALLOW IN    Anywhere                   # SENTINEL HTTPS
+3000/tcp                   DENY IN     Anywhere                   # SENTINEL api deny
+80/tcp                     ALLOW IN    Anywhere                   # HTTP (apache hôte / redirect)
+8883/tcp                   ALLOW IN    172.20.10.0/28             # SENTINEL MQTTS hotspot
+8081/tcp                   ALLOW IN    172.16.0.0/12              # SENTINEL vision docker
+8081/tcp                   DENY IN     Anywhere                   # SENTINEL vision deny others
+443/tcp (v6)               ALLOW IN    Anywhere (v6)              # SENTINEL HTTPS
+3000/tcp (v6)              DENY IN     Anywhere (v6)              # SENTINEL api deny
+80/tcp (v6)                ALLOW IN    Anywhere (v6)              # HTTP (apache hôte / redirect)
+8081/tcp (v6)              DENY IN     Anywhere (v6)              # SENTINEL vision deny others
+
+
+### Note vision
+SENTINEL_VISION_HOST=0.0.0.0 nécessaire sous Linux pour host.docker.internal; UFW ALLOW 172.16.0.0/12 puis DENY 8081.
+ESP TLS: pin SHA1 fingerprint (MQTT_CERT_FINGERPRINT), buffers 2048/512.

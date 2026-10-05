@@ -1,0 +1,467 @@
+    SUJET DE WORKSHOP NATIONAL - BAC+4
+
+
+
+
+MISSION SENTINEL-X
+  L'Avant-Poste Industriel du Futur
+
+
+
+
+         Direction Pédagogique Nationale EPSI
+
+  Session Octobre 2026 • Apprenants en BAC+4
+   SUJET DE WORKSHOP NATIONAL — BAC+4
+   MISSION SENTINEL-X : L'AVANT-POSTE INDUSTRIEL DU FUTUR
+   Apprenants Mastère 1ère Année • Sprint d'ingénierie (4 jours) • Octobre 2026
+
+
+
+
+1. CONTEXTE GLOBAL & ENJEUX
+En ce début d’année 2050, la multinationale AetherCorp Industrial Solutions fait face à une crise
+sécuritaire majeure. Déployant des micro-centrales énergétiques éco-responsables dans des zones
+géographiques isolées et particulièrement hostiles, l'entreprise subit une recrudescence d'attaques
+coordonnées. Ces infrastructures critiques font l'objet de trois menaces simultanées : des cyberattaques
+de déstabilisation réseau, des intrusions physiques d'espionnage industriel, et des risques
+environnementaux critiques comme des fuites de gaz combustibles ou des surchauffes thermiques.
+Face à l'impossibilité d'acheminer du personnel humain en permanence, AetherCorp lance l'initiative
+SENTINEL-X. L'objectif est de concevoir un boîtier de surveillance physique autonome (Edge Node)
+capable de s'interfacer sans fil et de manière ultra-sécurisée avec un Centre de Commandement
+Tactique, matérialisé par un PC Serveur Local durci sur le terrain.
+Chaque équipe du Workshop se constitue sous la forme d’un consortium d'ingénieurs indépendants
+chargé de livrer un prototype industriel cyber-physique complet : boîtier physique équipé, traitement
+algorithmique d'intelligence artificielle, infrastructure système conteneurisée, application de supervision
+réactive et protocole de sécurité défensive globale.
+
+
+
+    Définition et rôle du « PC Serveur Local » :
+ L'expression « PCServeur Local » désigne le cœur de calcul central du système de table. Selon l'option
+ matérielle retenue par le groupe le lundi matin, ce rôle sera physiquement assuré soit par une carte
+ (intégrée Raspberry Pi 5 au boîtier), soit directement par l'ordinateur portable d'un Apprenant
+ (faisant office de serveur et de point d'accès WiFi sur la table).
+ Dans tous les cas, le flux vidéo est capté exclusivement par une webcam USB connectée en direct
+ sur ce PC Serveur Local.
+
+
+
+
+      Les quatre piliers technologiques du projet :
+        Edge Computing & IoT : Programmation d'un microcontrôleur unique pour la captation de
+        données et la gestion d'alertes physiques et visuelles de table.
+        Intelligence Artificielle Locale : Analyse d'images réseau en temps réel et détection
+        comportementale/ prédictive sur séries temporelles.
+        Infrastructure & Centralisation : Orchestration de conteneurs serveurs résilients et sécurisation
+        des protocoles d'ingestion.
+        Cybersécurité : Chiffrement de bout en bout, durcissement (hardening) système et audit offensif
+        par Pentest croisé.
+
+
+
+
+EPSI — Direction Pédagogique Nationale — Workshop Bac+4 2026-27                               Page 2 sur 10
+2. SPÉCIFICATIONS TECHNIQUES & EXEMPLES PAR FILIÈRE
+Chaque équipe fonctionne comme un studio d'ingénierie pluridisciplinaire mixte. L'interconnexion
+fonctionnelle de chaque bloc est un prérequis éliminatoire pour valider la démonstration finale du vendredi.
+
+1° EISI DEV Conception & Développement d'Applications
+    Programmation IoT & Micrologiciel : Écriture exclusive du micrologiciel (firmware) en C++ (Arduino
+    IDE ou CLion/ VSCode + PlatformIO) pour l'unique module microcontrôleur ESP8266 de table. Gestion
+    de la lecture cadencée des capteurs, de l'affichage local sur l'écran OLED I2C et de la structuration des
+    payloads de données.
+    Backend & API : Développement d'une API REST et/ou WebSocket réactive (Node.js, Python ou Go)
+    hébergée sur le PC Serveur Local pour centraliser les métriques de sécurité et l'historique des
+    événements.
+
+
+  Exemple : Point d'entrée JSON obligatoire de POST /api/v1/alerts pour réceptionner les changements
+  type d'états des capteurs de table.
+
+   Dashboard de Supervision : Conception d'une interface Web moderne (React, Vue.js ou JS natif)
+   affichant les courbes environnementales en temps réel, le statut logique du boîtier et le retour visuel de
+   la webcam USB.
+   Contrôle Réactif : Implémentation d'un panneau de commande permettant au superviseur de
+   déclencher à distance des actionneurs physiques raccordés à l'ESP8266 (Buzzer d'alarme, LEDs de
+   statut).
+
+2° EISI IA Intelligence Artificielle & Data
+    Vision Intelligente : Écriture d'un script Python autonome s'exécutant sur le PC Serveur Local. Ce
+    script doit capter le flux vidéo de la webcam USB branchée en direct sur le serveur, appliquer un
+    modèle d'inférence (ex: YOLOv8-tiny ou OpenCV détection de formes) et isoler en temps réel une
+    présence humaine suspecte dans la zone.
+    Maintenance Prédictive : Analyse des séries temporelles des capteurs transmises par l'ESP8266.
+    Interdiction d'utiliser de simples structures conditionnelles statiques (ex: if temp > 40). Développement
+    d'un modèle algorithmique (ex: Isolation Forest, Random Forest via Scikit-Learn) capable de détecter
+    les anomalies cinétiques.
+
+
+  Exemple : Détection d'une corrélation suspecte entre une hausse lente de température et une micro-
+  déviation de gaz, prédisant un incident avant le seuil d'alerte critique.
+
+   Optimisation des Flux : Bridage et redimensionnement systématique des images de la webcam en
+   amont (ex: 640x480) pour maintenir un traitement fluide inférieur à 100ms par trame.
+
+
+3° EISI INFRA Réseau, Systèmes & ASRBD
+
+   Virtualisation de l'Infrastructure : Orchestration, configuration et déploiement automatisé de
+   l'ensemble de la stack serveur (Base de données relationnelle ou NoSQL, API Dev, et Broker MQTT
+   Mosquitto) sous la forme de conteneurs isolés et pérennes via Docker-Compose sur le PC Serveur
+   Local.
+   Routage & Topologie de Table : Déploiement et configuration d'un point d'accès Wi-Fi local dédié à la
+   table de l'équipe. Conception complète du plan d'adressage IP, gestion des masques, isolation réseau
+   et routage étanche des flux pour empêcher l'interférence avec les autres groupes.
+
+
+
+
+EPSI — Direction Pédagogique Nationale — Workshop BAC+4 2026-27                                Page 3 sur 10
+  Exemple de configuration : Sous-réseau de table étanche configuré sur une plage 192.168.10.0/24)
+  dédiée (ex: isolant les paquets de l'ESP8266 vers le PC Serveur Local.
+
+   Monitoring & MCO : Surveillance du maintien en condition opérationnelle (MCO) de la machine hôte
+   (consommation CPU/RAM, gestion des volumes de logs MQTT) face à l'afflux continu des messages.
+
+4° CYBER Cybersécurité
+
+   Sécurisation des Flux : Implémentation obligatoire du chiffrement des trames de bout en bout (TLS
+   pour MQTT -> MQTTS ou HTTPS) entre l'appareil IoT physique ESP8266 de collecte et la stack
+   conteneurisée.
+   Hardening Système (Durcissement) : Sécurisation drastique du système d'exploitation jouant le rôle
+   de serveur (fermeture des ports non requis via UFW/iptables, interdiction d'accès SSH par mot de
+   passe au profit de clés asymétriques publiques/privées, et isolation stricte des privilèges des daemons
+   Docker).
+   Audit et Pentest Offensif : Conduite de l'audit de sécurité lors de la journée du jeudi. Utilisation
+   d'outils professionnels (Nmap, Wireshark, Metasploit) pour mener des attaques de l'homme du milieu
+   (MitM), des injections de payloads ou des dénis de service (DoS) sur les infrastructures des groupes
+   concurrents lors du Pentest croisé.
+
+
+3. MATÉRIEL & CONFIGURATIONS TECHNIQUES ÉLÉMENTAIRES
+Chaque consortium dispose des équipements listés ci-dessous pour assembler son infrastructure de table :
+
+
+ Composant / Ressource          Catégorie                         Usage et Spécification Technique
+
+  Module Microcontrôleur                        Centralise la collecte complète des données environnementales de
+                                IoT (1 à 2)
+       (ESP8266)                                          la table et pilote les alertes physiques locales.
+
+                                                 Connectée directement au PC Serveur Local pour la capture et le
+ Webcam USB Classique           Vision (x1)
+                                                             traitement du flux vidéo destiné à l'IA.
+
+         Capteurs                               1x DHT22 (Température/Humidité), 1x MQ-2 (Gaz/ Fumées), 1x PIR
+                               Électronique
+    Environnementaux                                HC-SR501 (Présence). Connectés en direct sur l'ESP8266.
+
+                                                     1x Écran OLED I2C (0.96" pour statut IP/Wi-Fi), Buzzers
+    Interfaces & Alertes       Électronique
+                                                    piézoélectriques, LEDs de statut, Breadboards et jumpers.
+
+   Machines Numériques                            Imprimantes 3D (Creality K2 Plus), Graveuse/Découpeuse laser
+                                Fabrication
+         (myDiL)                                                     (Creality Falcon A1).
+
+
+Option Technique A : Centralisation Embarquée (Raspberry Pi 5)
+Le PC Serveur Local est matérialisé par une carte Raspberry Pi 5 (4 Go de RAM) fixée à l'intérieur du
+boîtier imprimé en 3D. Le Raspberry Pi exécute la pile Docker-Compose et prend en charge l'exécution
+locale du script d'intelligence artificielle de vision par ordinateur via la webcam USB raccordée sur la
+carte. Le module ESP8266 se connecte en Wi-Fi à ce Raspberry Pi.
+
+Option Technique B : Topologie Distribuée "Edge-to-Server" (PC Apprenant)
+Le Raspberry Pi est entièrement retiré. Le rôle de PC Serveur Local est alors assuré par l'ordinateur
+portable d'un des apprenants du groupe. La caméra USB est reliée directement à son PC, et
+l'intelligence artificielle profite des capacités matérielles (CPU/GPU) de sa machine pour s'exécuter. Le
+boîtier physique SENTINEL-X ne contient que l'ESP8266 et ses composants de captation électronique,
+transmettant leurs flux Wi-Fi à l'adresse IP de ce PC Serveur.
+
+
+EPSI — Direction Pédagogique Nationale — Workshop BAC+4 2026-27                                      Page 4 sur 10
+4. CHRONOLOGIE APPLIQUÉE DE LA SEMAINE (SPRINT)
+
+       LUNDI — Kick-off, Idéation & Design
+       Présentation officielle du cahier des charges, constitution des consortiums mixtes (4 à 6
+       personnes max.). Validation obligatoire des schémas d'architecture réseau et des flux de
+       données par les coachs de campus. Lancement des premières modélisations CAO
+
+       MARDI — Production Core & Développement
+       Câblage des composants sur plaques d'essai. Déploiement et configuration des conteneurs
+       système (EISI INFRA) sur le PC Serveur Local. Écriture du firmware de l'ESP8266 et
+       architecture de l'API (EISI DEV). Entraînement initial des modèles IA (EISI IA).
+
+       MERCREDI — Intégration globale & Studio Vidéo
+       Interconnexion des systèmes (Edge-to-Server). Les données des capteurs physiques doivent
+       modifier en temps réel les graphiques de l'interface Web et l'IA doit analyser la webcam.
+       Après-midi dédié au tournage du teaser "Sentinel Drop" sur fond vert.
+
+       JEUDI — Hacking Day & Audit de Sécurité
+       Matinée dédiée au "Gel du code" et aux finitions esthétiques du boîtier au Fablab. L'après-
+       midi est consacré au Pentest croisé national : chaque groupe tente de corrompre et de faire
+       tomber les systèmes des autres tables. Rédaction du rapport d'audit.
+
+       VENDREDI — Évaluation Locale & Soutenances
+       Soutenances des équipes devant le jury local, démos fonctionnelles en direct et annonce des
+       résultats du Campus pour désigner le consortium champion.
+
+
+
+
+EPSI — Direction Pédagogique Nationale — Workshop BAC+4 2026-27                        Page 5 sur 10
+5. CONSIGNES DE FABRICATION NUMÉRIQUE & RAPPORT MARKETING
+VIVANT (FABLAB)
+Le livrable final ne doit pas se restreindre à du code abstrait ou à des maquettes logicielles. Les
+apprenants doivent matérialiser leur concept au sein du Fablab :
+ 1. Modélisation & Impression 3D : Conception de la coque de protection sur outil CAO (Fusion360
+    exclusivement). Le boîtier doit encapsuler proprement l'électronique de table (ESP8266, capteurs),
+    laisser apparaître l'écran OLED d'état, et proposer des passes-câbles propres sans fils apparents.
+ 2. Gravure Laser Industrielle : Utiliser la machine de découpe/gravure laser pour apposer sur le boîtier
+    (plexiglas/bois/ carton épais) le logo d'AetherCorp, les consignes de sécurité, et le numéro de série du
+    module afin de lui conférer un aspect de produit fini.
+ 3. Le Teaser "Sentinel Drop" (Studio Vidéo Fond Vert) : Chaque équipe doit scénariser, tourner et
+    monter une vidéo promotionnelle technique au format vertical (9:16 - Type Instagram Reel, TikTok ou
+    YouTube Short) d'une durée stricte de 60 secondes maximum.
+
+
+      Spécifications et Objectifs du Format Vidéo 60 Secondes :
+  Ce livrable n'est pas un simple exercice d'ambiance, mais un Rapport de Produit Commercialisé
+  Vivant expliquer et valoriser le produit fini en moins d'une minute chrono selon la structure suivante :
+      00s - 10s (Le Hook Métier) : Présentation de la menace sur les centrales AetherCorp (ambiance
+      d'alerte, sirène) pour capter immédiatement l'attention du jury.
+      10s - 30s (Présentation du Produit Physique) : Gros plans (B-Roll) sur le boîtier Sentinel-X
+      finalisé, imprimé au Fablab et gravé au laser, mettant en valeur l'intégration de l'écran OLED et des
+      capteurs.
+      30s - 50s (Démonstration de la Stack d'Incrustation) : Exploitation obligatoire de la salle Fond
+      Vert. Les apprenants doivent s'incruster au premier plan avec, derrière eux, des schémas
+      d'architecture animés, des flux de code réels (firmware C++, API Docker) ou l'interface de vision de
+      l'IA (YOLO) isolant un intrus. L'objectif est de vulgariser visuellement l'intelligence embarquée.
+      50s - 60s (L'Appel à l'Action / Outro) : Alignement de l'équipe face caméra incarnant le
+      consortium d'ingénieurs AetherCorp. "Sentinel-X : la sécurité à la bordure."
+
+  Rendu exigé : Fichier MP4 vertical natif encodé proprement en H.264.
+
+
+
+
+EPSI — Direction Pédagogique Nationale — Workshop BAC+4 2026-27                                 Page 6 sur 10
+6. RENDUS IMPÉRATIFS
+L'ensemble des livrables numériques devra être déposé dans un dossier unique nommé Workshop2026-
+M1-G<n>, remplacez <n> par votre N° de groupe, le jeudi soir à l’échéance fixée par les coachs de
+campus (lien vers le dossier communiqué le lundi par les coachs) :
+
+
+   Le Rapport d'Ingénierie Technique : Un document unique au format PDF nommé
+   Workshop2026-M1-G<n>-Dossier.pdf comprenant le schéma réseau, le schéma de câblage
+   électronique, la matrice de sécurité (Hardening, TLS), la documentation de l'IA et le rapport d'audit
+   post-pentest. Inclut un poster format A3 en annexe.
+   Le Support de Présentation : Un fichier PowerPoint nommé Workshop2026-M1-G<n>-Pres.pptx
+   servant de support visuel à l'oral pour la soutenance du vendredi.
+   La Vidéo "Sentinel Drop" : Le fichier vidéo au format vertical .mp4 (60 secondes) nommée
+   Workshop2026-M1-G<n>-VidDrop.mp4. L'utilisation de la salle fond vert ou du tableau vert est
+   fortement recommandée.
+   L'archive du Code : Un zip nommé Workshop2026-M1-G<n>-Code.zip de votre dépôt Git
+   (GitHub/GitLab) propre, structuré, contenant un fichier README.md exhaustif. Aucun secret ni clé
+   d'authentification en clair.
+
+
+Le Prototype SENTINEL-X : Le boîtier physique fonctionnel équipé de son électronique, prêt pour la
+démonstration en direct (Démo Live) devant le jury devra être déposé au myDiL le vendredi matin à
+l'échéance fixée par les coachs de campus.
+
+
+
+7. CADRE D'ÉVALUATION LOCALE (SEMAINE DE SPRINT)
+La note globale locale est calculée selon la pondération réglementaire suivante :
+((Note Individuelle Suivix1) + (Note Collective Jury x 2)) / 3.
+
+1° Suivi de Réalisation Hebdomadaire (Par les Coachs, Lundi au Jeudi)
+
+Évaluation continue individuelle. Note sur 20 points (Coeff 1). Chaque critère est évalué sur le barème
+ND/1/2/3 puis ramené sur un 'nb' de points.
+
+   Engagement, Assiduité & Posture (4 pts) : Ponctualité, investissement constant et proactivité au sein
+   du groupe.
+   Expertise Technique Filière (4 pts) : Qualité et niveau d'exécution des tâches spécifiques à la filière
+   (DEV, INFRA, IA, CYBER).
+   Agilité & Autonomie (4 pts) : Capacité à diagnostiquer les erreurs de code/réseau et à implémenter
+   des correctifs.
+   Collaboration Transversale (4 pts) : Aptitude à coopérer et à faciliter l'intégration des briques
+   logicielles des autres filières.
+   Rigueur d'Ingénierie & Git (4 pts) : Commits réguliers et sémantiques, soin apporté au câblage et au
+   matériel de table.
+
+
+2° Soutenance et Démonstration Locale (Devant le Jury, le Vendredi)
+
+Évaluation collective de l'équipe. Note sur 20 points (Coeff 2). Chaque axe est évalué sur le barème
+ND/1/ 2/3 puis ramené sur un 'nb' de points.
+
+
+
+
+EPSI — Direction Pédagogique Nationale — Workshop BAC+4 2026-27                                Page 7 sur 10
+      Axe Majeur de Soutenance                Points              Indicateurs d'Excellence attendus par le Jury
+
+                                                              Stabilité du flux complet en direct (ESP8266 -> PC
+   Axe 1 : Démo Live & Intégration
+                                               5 pts          Serveur Local). Réactivité immédiate du Dashboard
+              Globale
+                                                                                  aux alertes.
+
+                                                                 Preuve matérielle du chiffrement des flux, niveau
+   Axe 2 : Technicité, Innovation &
+                                                4 pts        d'inférence de l'IA sur la webcam, durcissement prouvé
+              Sécurité
+                                                                                    du serveur.
+
+                                                            Impact visuel du clip 60s, propreté de l'incrustation fond
+ Axe 3 : Marketing & Teaser "Sentinel
+                                                4 pts         vert, finitions esthétiques du boîtier Fablab (gravure
+                Drop"
+                                                                                       laser).
+
+                                                                  Clarté de l'exposé, dynamisme de l'équipe,
+ Axe 4 : Posture, Storytelling & Pitch          4 pts        professionnalisme et respect strict du temps imparti (5
+                                                                                     min).
+
+                                                              Rigueur et exhaustivité du dossier technique remis.
+ Axe 5 : Qualité Documentaire & Q&A             3 pts        Précision technique des réponses lors de la phase de
+                                                                                  questions.
+
+
+
+3° Chrono de Passage Impératif (5 minutes de Live + 5 minutes de Présentation et Q&A)
+
+   Minute 1 (0:00-1:00) - Présentation : Introduction de l'équipe (1 minute) et rappel de la variante
+   d'architecture sélectionnée
+   Minute 2 (1:00-2:00) - Projection : Diffusion du teaser vidéo vertical "Sentinel Drop" (60 secondes)
+   réalisé sur fond vert.
+   Minutes 3 à 5 (2:00-5:00) - Démo Live Locale : Démonstration technique en direct de la Sentinel-X en
+   action (générations d'alertes capteurs et détection de l'IA de la webcam en temps réel à l'écran).
+   Minutes 6 à 10 (5:00-10:00) - Pitch + Q&A : Présentation détaillée du fonctionnement de la Sentinel-X
+   en action, ses capteurs, son code, son IA, ses indicateurs. Le groupe s’appuie sur sa présentation
+   PowerPoint pour illustrer et enrichir cette partie. Pendant l’exposé, le Jury intervient librement afin de
+   poser toutes les questions nécessaires à la clarification ou à l’approfondissement de points techniques.
+
+
+
+8. CADRE D'ÉVALUATION NATIONALE (FINALE LIVE TEAMS)
+Le 17 Novembre 2026, soit six semaines après la finale locale, les 10 consortiums champions de chaque
+campus se mesurent en direct lors de la Finale Nationale sur Microsoft Teams devant l'ensemble des
+campus interconnectés en Live (10 Campus connectés). Le processus s'organise de manière transparente
+et rigoureuse en deux étapes distinctes :
+
+1° Chrono de Passage Impératif (5 minutes maximum par équipe)
+Le non-respect du temps alloué entraîne l'interruption immédiate du flux par le modérateur national :
+
+   Minute 1 (0:00 - 1:00) — Présentation : Introduction synchrone en direct de l'équipe (1 minute) et
+   rappel de la variante d'architecture sélectionnée.
+   Minute 2 (1:00 - 2:00) — Projection : Diffusion du teaser vidéo vertical "Sentinel Drop" (60 secondes)
+   réalisé sur fond vert.
+   Minutes 3 à 5 (2:00 - 5:00) — Démo Live Nationale : Démonstration technique en direct de la
+   Sentinel-X en action (gérations d'alertes capteurs et détection de l'IA de la webcam en temps réel à
+   l'écran). Pas de diaporamas statiques, uniquement de la production live.
+
+
+
+
+EPSI — Direction Pédagogique Nationale — Workshop BAC+4 2026-27                                         Page 8 sur 10
+2° Étape 1 : Grille d'Évaluation Technique Critériée (Note sur 70 points)
+
+Évaluation collective de l'équipe, notée sur 70 points. Chaque jury remplit d'abord une grille de
+compétences objectives durant la prestation, attribuant une note sur le barème 1/2/3/4/5 ramenée sur un
+'nb' de points :
+
+                                                                  Indicateurs de Performance recherchés par les
+      Axe d'Évaluation National               Points
+                                                                                      Jurys
+
+                                                                 Visibilité claire de la stack technique à l'écran,
+     Démonstration Produit (Live)              25 pts
+                                                              réactivité réseau instantanée, absence de plantage.
+
+                                                             Régularité du débit de parole, dynamisme, clarté de la
+   Vulgarisation & Posture de Pitch            20 pts
+                                                                 narration et force de persuasion à distance.
+
+                                                              Robustesse apparente du lien ESP8266-to- Server,
+ Complexité Technique & Innovation             15 pts         intégration propre de la couche de chiffrement et de
+                                                                                       l'IA.
+
+                                                            Qualité de l'incrustation vidéo sur fond vert, dynamisme
+   Impact Visuel du "Drop" (Vidéo)             10 pts
+                                                             du montage et design esthétique du boîtier Fablab.
+
+
+
+3° Étape 2 : Le Scrutin National Croisé (Distribution du Capital de 43 points)
+
+L'évaluation finale est opérée par un collège de 2 jurys locaux par Campus (soit 20 jurys nationaux au
+total). À l'issue des passages des 10 campus, chaque jury compile ses grilles techniques pour établir son
+classement final de la 1ère à la 10ème place. Ce classement dicte la distribution **mécanique et
+obligatoire de son capital de 43 points** de vote selon la grille stricte suivante :
+
+
+        AXE D'ÉVALUATION NATIONAL                                               POINTS
+
+               1er du classement                                               12 points
+
+              2ème du classement                                               10 points
+
+              3ème du classement                                                8 points
+
+              4ème du classement                                                6 points
+
+              5ème du classement                                                4 points
+
+              6ème du classement                                                2 points
+
+              7ème du classement                                                1 points
+
+              8e, 9e et 10e places                                              0 points
+
+
+
+Règle de neutralité : Un jury local n'a strictement **pas le droit de voter pour le groupe issu de son propre
+campus**. Le campus local fait obligatoirement partie des 3 groupes recevant **0 point**, accompagné
+des deux campus les moins bien notés de la grille critériée du jury. Le cumul final de l'ensemble des points
+de scrutin de tous les jurys désigne le vainqueur national.
+
+
+
+
+EPSI — Direction Pédagogique Nationale — Workshop BAC+4 2026-27                                        Page 9 sur 10
+9. RÈGLEMENT APPLIQUÉ & SAVOIR-ÊTRE
+
+      Consignes administratives et de sécurité impératives :
+
+       Émargement Électronique : Chaque apprenant doit obligatoirement valider sa présence sur
+       l'application Edusign dans les 15 premières minutes de chaque demi-journée de travail (matin et
+       après-midi) sous peine de pénalité de suivi.
+       Savoir-vivre & Cadre de Travail : Les salles de cours et les laboratoires d'innovation (myDiL)
+       doivent être maintenus dans un état de propreté irréprochable. Tous les déchets, chutes de
+       prototypage ou restes de repas doivent être triés et évacués chaque soir.
+       Obligation de Présence aux Évaluations : La présence de la totalité des apprenants du campus
+       est strictement obligatoire pendant toute la durée des soutenances locales du vendredi, lors de
+       l'annonce des résultats du campus, ainsi que pendant l'intégralité de la retransmission de la Finale
+       Nationale sur Teams pour soutenir leur équipe championne.
+
+
+
+
+10. ANNEXES :
+SignificationduBarème de Notation ND/1/2/3 :
+
+- Niveau ND : Niveau Non Démontré
+- Niveau 1 : Peu Satisfaisant
+- Niveau 2 : Satisfaisant, conforme aux attendus
+- Niveau 3 : Très satisfaisant, au-delà des attendus.
+
+
+
+
+EPSI — Direction Pédagogique Nationale — Workshop BAC+4 2026-27                                Page 10 sur 10
+
