@@ -1,0 +1,82 @@
+# --- Secrets & credentials (NEVER commit) ---
+.env
+**/.env
+!.env.example
+!**/.env.example
+infra/.env
+infra/OPERATOR_PASSWORD.txt
+OPERATOR_PASSWORD.txt
+**/OPERATOR_PASSWORD.txt
+firmware/secrets.h
+firmware/**/secrets.h
+**/secrets.h
+!**/secrets.example.h
+
+# TLS private keys & serial
+infra/certs/*.key
+**/*.key
+!**/gen-certs.sh
+infra/certs/ca.srl
+**/*.pem
+!infra/certs/server_pub.pem
+!infra/certs/*.crt
+
+# MQTT password files
+infra/mosquitto/passwd
+infra/mosquitto/**/passwd
+infra/mosquitto/secrets/
+**/*.password
+
+# Firmware lock
+.firmware.lock
+**/.firmware.lock
+
+# Hardening logs
+infra/hardening/harden.log
+
+# --- Python ---
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtualenvs
+.venv/
+venv/
+env/
+**/.venv/
+**/venv/
+
+# --- Node / frontend junk ---
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# --- IDE / OS ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+*.bak
+*.bak-*
+*.bak2
+
+# --- Vision / ML large binaries (keep deliverable model) ---
+vision/*.pt
+vision/runs/
+vision/snapshot_preview.jpg
+vision/*.png
+vision/snapshot_*.jpg
+# Ignore generated joblib by default, but KEEP the deliverable model
+*.joblib
+!ml/models/model.joblib
+ml/models/*.tmp
+# metadata.json is tracked (deliverable)
