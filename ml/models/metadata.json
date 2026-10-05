@@ -1,0 +1,131 @@
+{
+  "model": "IsolationForest",
+  "library": "scikit-learn",
+  "device": "sentinel-node-01",
+  "trained_at": "2026-10-05T12:56:39+00:00",
+  "train_period_utc": [
+    "2026-10-05T09:40:30.622191+00:00",
+    "2026-10-05T12:14:02.134124+00:00"
+  ],
+  "n_samples_real": 1004,
+  "n_samples_augmented": 4016,
+  "n_samples": 5020,
+  "n_segments_train": 4,
+  "excluded_periods": [
+    {
+      "start": "2026-10-05T00:00:00Z",
+      "end": "2026-10-05T09:40:30Z",
+      "reason": "prechauffage du MQ-2 apres mise sous tension"
+    },
+    {
+      "start": "2026-10-05T09:58:30Z",
+      "end": "2026-10-05T10:02:40Z",
+      "reason": "pics de gaz reels (essais briquet) - utilises comme incidents reels en evaluation"
+    },
+    {
+      "start": "2026-10-05T10:13:50Z",
+      "end": "2026-10-05T10:23:00Z",
+      "reason": "pic de gaz reel (saturation 1024) + retour a la ligne de base - incident reel en evaluation"
+    },
+    {
+      "start": "2026-10-05T10:31:50Z",
+      "end": "2026-10-05T12:08:00Z",
+      "reason": "MQ-2 debranche puis rebranche : coupure, redemarrages ESP et rechauffe jusqu'a baseline apres-midi stable (~69 ADC)"
+    },
+    {
+      "start": "2026-10-05T12:19:30Z",
+      "end": "2026-10-05T12:25:30Z",
+      "reason": "spray gaz briquet reel (pics jusqu'a 1024 ADC) + marge de retour a la ligne de base - incident reel en evaluation"
+    },
+    {
+      "start": "2026-10-05T12:25:50Z",
+      "end": "2026-10-05T12:30:30Z",
+      "reason": "essai chauffage DHT22 (temp jusqu'a 26.8 C, humidite en chute) + petit pic gaz residuel - incident thermique reel en evaluation"
+    },
+    {
+      "start": "2026-10-05T12:31:00Z",
+      "end": "2026-10-05T12:32:30Z",
+      "reason": "micro-pic gaz + glitch DHT22 isole (11.5 C) - marge de retour"
+    },
+    {
+      "start": "2026-10-05T12:35:30Z",
+      "end": "2026-10-05T12:45:00Z",
+      "reason": "pic gaz secondaire + redemarrages ESP (passage cadence 0.5 s) et rechauffe post-reboot"
+    },
+    {
+      "start": "2026-10-05T12:50:00Z",
+      "end": "2026-10-05T12:54:00Z",
+      "reason": "spray gaz reel (pics ~300 ADC) pendant le re-reglage ML + retour baseline - incident reel en evaluation"
+    }
+  ],
+  "contamination": 0.005,
+  "n_estimators": 300,
+  "random_state": 42,
+  "augmentation": {
+    "gas_uniform_noise": 10.0,
+    "temp_uniform_noise": 0.5,
+    "hum_uniform_noise": 2.0,
+    "person_nearby": true,
+    "feature_jitter_floors": {
+      "gas_dev_rel": 0.14285714285714285,
+      "gas_slope_30s": 0.14285714285714285,
+      "gas_std_30s": 0.07142857142857142,
+      "gas_slope_2m": 0.07142857142857142,
+      "temp_slope_2m": 0.25,
+      "temp_dev": 0.5,
+      "hum_slope_2m": 1.0,
+      "gas_temp_corr": 0.2
+    }
+  },
+  "features": [
+    "gas_dev_rel",
+    "gas_slope_30s",
+    "gas_std_30s",
+    "gas_slope_2m",
+    "temp_slope_2m",
+    "temp_dev",
+    "hum_slope_2m",
+    "gas_temp_corr"
+  ],
+  "sample_period_s": 2.0,
+  "calibration": {
+    "score_p50": 0.41020310902008184,
+    "score_vigilance": 0.5912779895099878,
+    "score_threshold": 0.6345422891638326,
+    "score_extreme": 0.7569241290590218
+  },
+  "robust_stats": {
+    "gas_dev_rel": {
+      "median": 0.004307006096422207,
+      "scale": 0.14285714285714285
+    },
+    "gas_slope_30s": {
+      "median": 0.020811721566582154,
+      "scale": 0.14285714285714285
+    },
+    "gas_std_30s": {
+      "median": 0.04249265112217621,
+      "scale": 0.07142857142857142
+    },
+    "gas_slope_2m": {
+      "median": 0.0,
+      "scale": 0.07142857142857142
+    },
+    "temp_slope_2m": {
+      "median": 0.04201166990830748,
+      "scale": 0.25
+    },
+    "temp_dev": {
+      "median": 0.16347911127189363,
+      "scale": 0.5
+    },
+    "hum_slope_2m": {
+      "median": -0.13806836022724306,
+      "scale": 1.0
+    },
+    "gas_temp_corr": {
+      "median": 0.0,
+      "scale": 0.2
+    }
+  }
+}
