@@ -1,0 +1,29 @@
+[Unit]
+Description=SENTINEL-X vision service (webcam + YOLO MJPEG)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/sentinel-x/vision
+ExecStart=%h/sentinel-x/vision/.venv/bin/python %h/sentinel-x/vision/vision_service.py
+Restart=on-failure
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=%h/.config/sentinel/vision.env
+Environment=SENTINEL_YOLO_MODEL=yolov8n.pt
+Environment=SENTINEL_CAMERA_DEVICE=/dev/v4l/by-id/usb-UGREEN_Camera_UGREEN_Camera_SN0001-video-index0
+Environment=SENTINEL_CAPTURE_WIDTH=1280
+Environment=SENTINEL_CAPTURE_HEIGHT=720
+Environment=SENTINEL_OUTPUT_HEIGHT=440
+Environment=SENTINEL_CAM_BACKLIGHT=6
+Environment=SENTINEL_CAM_GAMMA=150
+Environment=SENTINEL_SHADOW_LIFT=2.5
+Environment=SENTINEL_INFER_INTERVAL=0.20
+Environment=SENTINEL_STREAM_FPS=12
+Environment=OMP_NUM_THREADS=2
+Environment=MKL_NUM_THREADS=2
+Environment=OPENBLAS_NUM_THREADS=2
+Environment=TORCH_NUM_THREADS=2
+
+[Install]
+WantedBy=default.target
