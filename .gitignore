@@ -9,6 +9,8 @@ OPERATOR_PASSWORD.txt
 **/OPERATOR_PASSWORD.txt
 firmware/secrets.h
 firmware/**/secrets.h
+**/secrets.h.*
+firmware/**/secrets.h.*
 **/secrets.h
 !**/secrets.example.h
 

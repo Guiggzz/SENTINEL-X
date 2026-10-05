@@ -26,8 +26,8 @@ CSS = r"""
               @bottom-left { content: none; } @bottom-right { content: none; } }
 @page poster { size: A3 landscape; margin: 12mm 14mm;
                @top-left { content: none; border: none; } @top-right { content: none; border: none; }
-               @bottom-left { content: "Annexe A3 — poster · à imprimer en A3 paysage"; font: 400 7.5pt "DejaVu Sans Mono"; color: #6b6a64; }
-               @bottom-right { content: "Workshop2026-""" + GLABEL + r""""; font: 400 7.5pt "DejaVu Sans Mono"; color: #6b6a64; } }
+               @bottom-left { content: none; }
+               @bottom-right { content: none; } }
 
 :root { --bg:#f2f1ec; --ink:#111; --muted:#6b6a64; --rule:#d4d2c8; --rule-s:#b8b6ab; --surface:#eae9e2; --accent:#c45c26; --ok:#2f7d4a; }
 * { box-sizing: border-box; }
@@ -155,7 +155,6 @@ HTMLDOC = f"""<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>
     <h3>Équipe (consortium)</h3>
     <table><tr><th>Membre</th><th>Filière (DEV / IA / INFRA / CYBER)</th><th>Rôle principal</th></tr>{team_rows}</table>
   </div>
-  <div class="foot"><span>Sentinel-X : la sécurité à la bordure.</span><span>Document interne — aucun secret ne figure dans ce rapport</span></div>
 </section>
 
 <!-- ======================= SOMMAIRE ======================= -->
@@ -420,7 +419,7 @@ déclenche la sirène <code>intrus</code> pendant 15 s. Pendant une alerte gaz, 
 <!-- ======================= ANNEXE A3 ======================= -->
 <section class="poster" id="a3">
   <div class="ph">
-    <div><div class="t">SENTINEL<span>-X</span></div><div class="sub">La sécurité à la bordure — nœud IoT, stack Docker chiffrée, IA prédictive, vision temps réel</div></div>
+    <div><div class="t">SENTINEL<span>-X</span></div><div class="sub">Nœud IoT · stack Docker · MQTTS/HTTPS · Isolation Forest · YOLOv8n</div></div>
     <div class="r">Annexe A3 · Workshop EPSI Bac+4 · octobre 2026<br>Option B — PC apprenant = serveur<br>Workshop2026-{GLABEL}</div>
   </div>
   <div class="kpi">
@@ -466,7 +465,6 @@ déclenche la sirène <code>intrus</code> pendant 15 s. Pendant une alerte gaz, 
         <tr><td class="m">thermique</td><td>LED rouge + bandeau</td></tr>
         <tr><td class="m">intrusion</td><td>sirène intrus 15 s (si armée)</td></tr>
       </table>
-      <div class="tagline">Sentinel-X : <span>la sécurité à la bordure.</span></div>
     </div>
   </div>
   <div class="chain">

@@ -191,7 +191,7 @@ for k, v, m in [("Option", "B — PC serveur (Edge-to-Server)", False),
     yy += 0.42
 rule(sl, L, yy, L + 7.2)
 rule(sl, L, H - 0.70, R)
-text(sl, L, H - 0.55, 7, 0.3, [[("Sentinel-X : ", {}), ("la sécurité à la bordure.", {"color": ACC})]], size=12, bold=True)
+text(sl, L, H - 0.55, 7, 0.3, [[("Sentinel-X : ", {}), (".", {"color": ACC})]], size=12, bold=True)
 text(sl, R - 5, H - 0.55, 5, 0.3, "Document sans secret", size=10, color=MUTED, font=MONO, align=PP_ALIGN.RIGHT)
 notes(sl, "Accroche : AetherCorp, micro-centrales isolées. SENTINEL-X = boîtier autonome + PC serveur local durci (Option B).")
 
@@ -325,7 +325,7 @@ box(sl, x, 2.55, 0.06, 0.9, fill=ACC)
 text(sl, x + 0.35, 2.45, R - x - 0.35, 1.1, "Questions ?", size=34, bold=True)
 text(sl, x + 0.35, 3.55, R - x - 0.35, 0.4, f"Workshop2026-{GLABEL}", size=12, font=MONO, color=MUTED)
 rule(sl, x + 0.35, 5.6, R)
-text(sl, x + 0.35, 5.75, R - x - 0.35, 0.6, [[("Sentinel-X : ", {}), ("la sécurité à la bordure.", {"color": ACC})]],
+text(sl, x + 0.35, 5.75, R - x - 0.35, 0.6, [[("Sentinel-X : ", {}), (".", {"color": ACC})]],
      size=15, bold=True)
 notes(sl, "Merci. Ouverture aux questions du jury.")
 
