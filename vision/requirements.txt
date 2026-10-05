@@ -1,6 +1,8 @@
 # Install order matters (CPU torch, no CUDA):
 #   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 #   pip install -r requirements.txt
+# YuNet + SFace (reconnaissance démo) sont dans ce wheel OpenCV.
+# Modèles : python3 fetch_face_models.py  (hors git)
 opencv-python-headless>=4.8,<5
 ultralytics>=8.2,<9
 numpy>=1.26,<3

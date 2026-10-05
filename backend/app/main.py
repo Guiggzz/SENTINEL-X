@@ -20,7 +20,7 @@ from app.config import settings
 from app.database import SessionLocal, get_db, init_db
 from app.models import AlertEvent, DeviceStatus, Telemetry
 from app.mqtt_client import mqtt_bridge
-from app import extras
+from app import extras, faces
 from app.schemas import (
     AlertIn,
     AlertOut,
@@ -116,7 +116,12 @@ async def store_mqtt_message(topic: str, kind: str, payload: dict[str, Any] | st
             try:
                 t = str(payload.get("type", ""))
                 st = str(payload.get("state", ""))
-                if t in ("presence", "vision"):
+                if t in ("presence", "vision") and st.startswith("face_"):
+                    await extras.on_face_event(
+                        str(payload.get("device_id") or topic.split("/")[1]),
+                        st,
+                    )
+                elif t in ("presence", "vision"):
                     await extras.on_presence_event(
                         str(payload.get("device_id") or topic.split("/")[1]),
                         st,
@@ -154,6 +159,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="SENTINEL-X API", version="1.0.0", lifespan=lifespan)
 # IA / alarme presence / MCO (memes regles d'authentification que les autres routes /api/v1)
 app.include_router(extras.router, dependencies=[Depends(require_auth)])
+app.include_router(faces.router, dependencies=[Depends(require_auth)])
 
 
 @app.get("/health", response_model=HealthOut)
@@ -235,7 +241,9 @@ async def create_alert(
             },
         }
     )
-    if body.type in ("vision", "presence"):
+    if body.type in ("vision", "presence") and (body.state or "").startswith("face_"):
+        await extras.on_face_event(body.device_id, body.state)
+    elif body.type in ("vision", "presence"):
         await extras.on_presence_event(
             body.device_id, body.state, source="vision" if body.type == "vision" else "pir"
         )

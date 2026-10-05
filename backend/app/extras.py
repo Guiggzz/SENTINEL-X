@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import SessionLocal, get_db
+from app.face_gate import face_alarm_action, vision_camera_gated
 from app.models import AlertEvent, AppSetting, DeviceStatus
 from app.mqtt_client import mqtt_bridge
 
@@ -103,19 +104,30 @@ async def ai_state() -> dict[str, Any]:
 
 # ------------------------------------------------------------------ alarme presence
 PERSON_KEY = "person_alarm_enabled"
+FACE_KEY = "face_alarm_enabled"
 INTRUS_MS = int(os.getenv("PERSON_ALARM_DURATION_MS", "15000"))
 _intrus_until = 0.0
+_face_siren = False
 # Armement : bip de ARM_BEEP_MS, l'alarme n'est active qu'a la fin du bip
 ARM_BEEP_MS = int(os.getenv("ARM_BEEP_MS", "2000"))
 _armed_at = 0.0
 
 
-def _vision_persons() -> int:
-    import json as _j, urllib.request as _u
+def _vision_health() -> dict[str, Any]:
+    import json as _j
+    import urllib.request as _u
     try:
         with _u.urlopen(os.getenv("VISION_HEALTH_URL", "http://172.22.0.1:8081/health"), timeout=1.5) as r:
-            return int(_j.loads(r.read()).get("persons") or 0)
+            data = _j.loads(r.read())
+            return data if isinstance(data, dict) else {}
     except Exception:
+        return {}
+
+
+def _vision_persons() -> int:
+    try:
+        return int(_vision_health().get("persons") or 0)
+    except (TypeError, ValueError):
         return 0
 
 
@@ -172,6 +184,11 @@ async def _person_enabled(db: AsyncSession) -> tuple[bool, datetime | None]:
     return (row is not None and row.value == "true"), (row.updated_at if row else None)
 
 
+async def _face_enabled(db: AsyncSession) -> tuple[bool, datetime | None]:
+    row = await db.get(AppSetting, FACE_KEY)
+    return (row is not None and row.value == "true"), (row.updated_at if row else None)
+
+
 def _cmd(payload: dict[str, Any]) -> None:
     mqtt_bridge.publish(f"sentinel/{settings.default_device_id}/cmd", payload)
 
@@ -207,6 +224,43 @@ async def put_person_alarm(body: PersonAlarmIn, db: AsyncSession = Depends(get_d
         _armed_at = 0.0
     return {"enabled": body.enabled, "updated_at": now, "duration_ms": INTRUS_MS, "song": "intrus"}
 
+
+@router.get("/settings/face-alarm")
+async def get_face_alarm(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    enabled, updated = await _face_enabled(db)
+    return {"enabled": enabled, "updated_at": updated, "song": "intrus", "duration_ms": INTRUS_MS}
+
+
+@router.put("/settings/face-alarm")
+async def put_face_alarm(body: PersonAlarmIn, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    """Alarme visage inconnu, indépendante de l'alarme présence. Désarmée par défaut."""
+    global _face_siren, _intrus_until
+    now = datetime.now(timezone.utc)
+    row = await db.get(AppSetting, FACE_KEY)
+    if row:
+        row.value, row.updated_at = ("true" if body.enabled else "false"), now
+    else:
+        db.add(AppSetting(key=FACE_KEY, value="true" if body.enabled else "false", updated_at=now))
+    await db.commit()
+    if not body.enabled and _face_siren and not gas_alarm_active():
+        try:
+            _cmd({"action": "buzzer_off"})
+        except Exception:
+            logger.warning("buzzer_off visage impossible (MQTT)")
+        _face_siren = False
+        _intrus_until = 0.0
+    await _emit({"channel": "settings", "data": {"face_alarm_enabled": body.enabled, "updated_at": now.isoformat()}})
+    await _log_alert("sentinel-api", "reglage", "alarme_visage_armee" if body.enabled else "alarme_visage_desarmee")
+    if body.enabled:
+        health = await asyncio.to_thread(_vision_health)
+        if health.get("face_ready") and health.get("face_status") == "unknown":
+            await on_face_event(settings.default_device_id, "face_unknown")
+        else:
+            try:
+                _cmd({"action": "beep", "duration_ms": 400})
+            except Exception:
+                logger.warning("bip visage impossible (MQTT)")
+    return {"enabled": body.enabled, "updated_at": now, "song": "intrus", "duration_ms": INTRUS_MS}
 
 
 async def _load_sources(db: AsyncSession) -> dict[str, bool]:
@@ -267,8 +321,16 @@ _CLEAR = {"person_cleared", "cleared", "absent", "off"}
 
 async def on_presence_event(device_id: str, state: str, source: str = "vision") -> None:
     """Sirene 'intrus' si alarme armee. Accepte les alertes vision et PIR (presence/detected)."""
-    global _intrus_until
+    global _intrus_until, _face_siren
     st = (state or "").lower()
+    # Portillon visage armé et modèles prêts : la caméra ne sonne plus sur une simple personne,
+    # et person_cleared ne coupe pas la sirène (c'est face_cleared / face_known qui s'en charge).
+    if (source or "").startswith("vision"):
+        async with SessionLocal() as s:
+            face_on, _ = await _face_enabled(s)
+        ready = bool((await asyncio.to_thread(_vision_health)).get("face_ready")) if face_on else False
+        if vision_camera_gated(face_on, ready, source, st):
+            return
     if st in _TRIG:
         async with SessionLocal() as s:
             enabled, _ = await _person_enabled(s)
@@ -300,11 +362,53 @@ async def on_presence_event(device_id: str, state: str, source: str = "vision") 
         except Exception:
             logger.exception("buzzer_off impossible")
         _intrus_until = 0.0
+        _face_siren = False
         await _log_alert(device_id, "intrusion", "alarme_arretee_zone_libre", {"source": source})
 
 
 async def on_vision_alert(device_id: str, state: str) -> None:
     await on_presence_event(device_id, state, source="vision")
+
+
+async def on_face_event(device_id: str, state: str) -> None:
+    """Sirène intrus seulement pour un visage inconnu, et seulement si le réglage est armé.
+
+    Visage connu ou absence de visage : pas d'alarme. Si la sirène en cours vient de ce
+    portillon, on la coupe. La LED rouge suit le buzzer (mode auto du firmware).
+    """
+    global _intrus_until, _face_siren
+    async with SessionLocal() as s:
+        face_on, _ = await _face_enabled(s)
+    action = face_alarm_action(face_on, state)
+    if action == "ignore":
+        return
+    if action == "alarm":
+        if gas_alarm_active():
+            await _log_alert(device_id, "intrusion", "detectee_pendant_alarme_gaz", {"source": "face"})
+            return
+        if time.time() < _intrus_until:
+            return
+        try:
+            _cmd({"action": "buzzer_on", "duration_ms": INTRUS_MS, "song": "intrus"})
+            _intrus_until = time.time() + INTRUS_MS / 1000
+            _face_siren = True
+        except Exception:
+            logger.exception("commande intrus visage impossible")
+        await _log_alert(
+            device_id,
+            "intrusion",
+            "alarme_declenchee",
+            {"song": "intrus", "duration_ms": INTRUS_MS, "source": "face"},
+        )
+        return
+    if _face_siren and time.time() < _intrus_until and not gas_alarm_active():
+        try:
+            _cmd({"action": "buzzer_off"})
+        except Exception:
+            logger.exception("buzzer_off visage impossible")
+        _intrus_until = 0.0
+        _face_siren = False
+        await _log_alert(device_id, "intrusion", "alarme_arretee_visage", {"state": state, "source": "face"})
 
 
 # ------------------------------------------------------------------ MCO

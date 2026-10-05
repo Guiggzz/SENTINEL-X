@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SENTINEL-X · EPSI Workshop</title>
-  <link rel="stylesheet" href="/static/style.css?v=10" />
+  <link rel="stylesheet" href="/static/style.css?v=11" />
   <script src="/static/vendor/chart.umd.min.js"></script>
   <script>
     window.Chart || document.write('<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"><\/script>');
@@ -29,7 +29,12 @@
     <span id="alarmDetail" class="alarm-detail"></span>
   </div>
 
-  <main class="layout">
+  <nav class="tabs" aria-label="Sections">
+    <button type="button" class="tab is-on" data-tab="ops" aria-selected="true">Supervision</button>
+    <button type="button" class="tab" data-tab="faces" aria-selected="false">Visages</button>
+  </nav>
+
+  <main class="layout" id="tab-ops">
     <section class="status-strip">
       <div class="stat">
         <span class="label">Nœud</span>
@@ -103,6 +108,7 @@
         <p id="visInfer" class="mco-v big">—</p>
         <p id="visDetail" class="mco-sub">—</p>
         <p class="mco-sub"><span id="visFrame">—</span> · personnes <span id="visPersons">—</span></p>
+        <p id="faceStatusLine" class="mco-sub">Visage —</p>
         <p class="mco-sub">objectif &lt; 100 ms</p>
       </article>
       <article class="panel mco-panel">
@@ -165,10 +171,46 @@
     </section>
   </main>
 
+  <section id="tab-faces" class="layout faces-page" hidden>
+    <p class="face-help">
+      Photos nettes, visage de face, une personne par image. Visage connu : pas de sirène.
+      Visage inconnu : sirène « intrus » et LED rouge, seulement si l'alarme est armée.
+      Tant que les modèles sont chargés, cette alarme remplace l'alarme personne de la caméra
+      (le PIR reste indépendant). Seuil cosinus par défaut 0,36 — démo d'atelier, pas une biométrie de production.
+    </p>
+    <div class="faces-grid">
+      <article class="panel">
+        <h2>Alarme et enrôlement</h2>
+        <div class="toggle-row">
+          <span class="toggle-label">Alarme visage inconnu</span>
+          <span id="faceAlarmState" class="toggle-state">—</span>
+          <button id="faceAlarmToggle" class="switch" aria-pressed="false" aria-label="Armer ou désarmer l'alarme visage inconnu"><i></i></button>
+        </div>
+        <p id="faceLive" class="face-status">—</p>
+        <p id="faceScore" class="mco-sub">—</p>
+        <form id="faceForm" class="face-form">
+          <label>Nom
+            <input id="faceName" name="name" type="text" maxlength="40" required autocomplete="off" />
+          </label>
+          <label>Photos
+            <input id="facePhotos" name="photo" type="file" accept="image/jpeg,image/png,image/webp" multiple required />
+          </label>
+          <button type="submit">Enrôler</button>
+          <p id="faceFormMsg" class="feedback"></p>
+        </form>
+      </article>
+      <article class="panel">
+        <h2>Personnes enrôlées</h2>
+        <ul id="faceList" class="face-list"></ul>
+      </article>
+    </div>
+  </section>
+
   <footer>
     EPSI Workshop · SENTINEL-X · MQTT / WebSocket
   </footer>
-  <script src="/static/app.js?v=10"></script>
-  <script src="/static/ai.js?v=10"></script>
+  <script src="/static/app.js?v=11"></script>
+  <script src="/static/ai.js?v=11"></script>
+  <script src="/static/faces.js?v=11"></script>
 </body>
 </html>

@@ -347,12 +347,58 @@ L'OLED affiche `!! ALERTE GAZ !!` / `!! INTRUSION !!`. Motifs dans `firmware/sen
   **Désarmée** → la détection est seulement journalisée. Pendant une alerte gaz, pas de sirène intrus
   (`intrusion/detectee_pendant_alarme_gaz`). Le PIR (instable) n'est pas utilisé.
 
+## Visages (démo d'atelier)
+
+Reconnaissance **YuNet + SFace** (OpenCV, CPU) dans le service vision. Ce n'est pas une biométrie
+de production : éclairage, angle et ressemblance peuvent se tromper.
+
+| Réglage | Effet |
+|---|---|
+| Alarme visage inconnu **désarmée** (défaut) | La caméra se comporte comme avant : `person_detected` peut sonner si l'alarme présence est armée. |
+| Alarme visage inconnu **armée** et modèles chargés | Visage **connu** : pas de sirène. Visage **inconnu** : même sirène `intrus` que la présence (LED rouge en mode auto). L'alarme personne YOLO de la caméra est alors suspendue. Le PIR n'est pas modifié. |
+| Aucun visage dans l'image | Pas d'alarme visage (`Aucun visage` au tableau de bord). |
+
+Seuil : similarité **cosinus**, défaut **0,363** (référence OpenCV SFace). Plus haut = plus strict
+(moins de faux « connus »). Variable `SENTINEL_FACE_THRESHOLD`. Débounce avant sirène :
+`SENTINEL_FACE_DEBOUNCE` (défaut 1,5 s).
+
+### Activer
+
+```bash
+cd ~/sentinel-x/vision
+python3 fetch_face_models.py          # une fois, ~40 Mo, fichiers ignorés par git
+# redémarrer le service (les modèles sont lus au démarrage)
+systemctl --user restart sentinel-vision.service
+```
+
+Galerie sur l'hôte : `vision/data/gallery/` (JSON + vecteurs `.npy` + vignettes). Elle n'est pas
+dans le conteneur API : le tableau de bord parle à `/api/v1/faces` (session obligatoire), qui
+proxifie vers `:8081` avec le bearer `API_TOKEN`. Les routes `/faces` du service vision exigent
+ce jeton dès qu'il est défini (`SENTINEL_API_TOKEN` ou `API_TOKEN` dans `vision.env`).
+
+### Enrôler
+
+Onglet **Visages** du dashboard : nom, une ou plusieurs photos de face, bouton Enrôler.
+Le même nom ajoute des photos à la personne déjà enrôlée. Retirer supprime la fiche.
+Le bandeau caméra et l'onglet affichent **Connu · nom**, **Inconnu** ou **Aucun visage**.
+
+### Tester sans caméra
+
+```bash
+cd vision && python3 -m unittest test_face_gallery.py test_face_api.py
+cd ../backend && python3 -m unittest test_face_gate.py
+```
+
 ## Nouveaux endpoints / dashboard
 
 | Méthode | Chemin | Description |
 |---|---|---|
 | `GET` | `/api/v1/ai` | dernier état IA par équipement + historique du risque (15 min) |
 | `GET/PUT` | `/api/v1/settings/person-alarm` | armement de l'alarme présence |
+| `GET/PUT` | `/api/v1/settings/face-alarm` | alarme visage inconnu (désarmée par défaut) |
+| `GET/POST` | `/api/v1/faces` | liste / enrôlement (multipart `name` + `photo`) |
+| `DELETE` | `/api/v1/faces/{id}` | retire une personne |
+| `GET` | `/api/v1/faces/status` | connu / inconnu / aucun visage |
 | `GET` | `/api/v1/system` | MCO : CPU/RAM/disque de l'hôte (`/proc` lu depuis le conteneur API), débit MQTT, sondes mosquitto / db / ml / nœud |
 
 Canaux WebSocket ajoutés : `risk` (score IA temps réel), `settings`.
@@ -366,7 +412,7 @@ Le service vision expose `infer_ms`, `infer_ms_max`, `infer_frame` dans `/health
 | Service | Variables |
 |---|---|
 | `sentinel-ml` | `MQTT_HOST`, `MQTT_PORT`, `MQTT_USERNAME`, `MQTT_PASSWORD` (compose : `MQTT_USERNAME_ML` / `MQTT_PASSWORD_ML`), `MQTT_TLS`, `MQTT_CA_FILE`, `MQTT_TELEMETRY_TOPIC`, `DATABASE_URL`, `ML_ACTUATOR_DEVICE`, `ML_TRAIN_DEVICE`, `ML_GAS_BUZZER_MS`, `ML_REARM_S`, `ML_CONTAMINATION`, `ML_AI_TOPIC`, `ML_ALERTS_TOPIC`, `ML_STATUS_TOPIC` |
-| vision | `SENTINEL_API_ALERTS` (ou `API_BASE_URL`), `SENTINEL_API_TOKEN` (ou `API_TOKEN`) → en-tête `Authorization: Bearer` |
+| vision | `SENTINEL_API_ALERTS` (ou `API_BASE_URL`), `SENTINEL_API_TOKEN` (ou `API_TOKEN`) → en-tête `Authorization: Bearer` ; `SENTINEL_FACE_THRESHOLD` (0,363), `SENTINEL_FACE_DEBOUNCE` (1,5), `SENTINEL_FACE_DIR`, `SENTINEL_FACE_MODEL_DIR` |
 | API | `PERSON_ALARM_DURATION_MS` (défaut 15000) |
 
 
@@ -450,7 +496,8 @@ Pin du certificat serveur (**SHA1 fingerprint** via BearSSL `setFingerprint` / `
    - Variables d'environnement : copier `infra/.env.example` → `infra/.env` (jamais committer `.env`).
 6. **IA** : panneau risque sur le dashboard ; rejouer / entraîner via `docker compose run --rm --no-deps ml python train.py`.
 7. **Scénario gaz** : spray butane contrôlé → incident `gaz_fumee` + sirène ; « Couper alarme » pour acquitter.
-8. **Preuves sécu** : `bash infra/hardening/verify.sh` ; SSH clé-only (voir `docs/preuves-securite.txt`).
+8. **Visages** : `python3 vision/fetch_face_models.py`, redémarrer `sentinel-vision`, onglet Visages, enrôler une photo, armer « Alarme visage inconnu ». Connu : pas de sirène. Inconnu : sirène intrus.
+9. **Preuves sécu** : `bash infra/hardening/verify.sh` ; SSH clé-only (voir `docs/preuves-securite.txt`).
 
 Ports utiles : **443** (HTTPS), **8883** (MQTTS, idéalement LAN/hotspot), **8081** (vision, restreint UFW), API bind `127.0.0.1:3000` (pas exposée).
 
@@ -463,7 +510,7 @@ sentinel-x/
 ├── backend/           # FastAPI + static dashboard
 ├── ml/                # Isolation Forest (train.py, service.py, models/, evaluation.md)
 ├── infra/             # docker-compose, mosquitto, certs, .env
-├── vision/            # Webcam + YOLO (MJPEG :8081, infer_ms)
+├── vision/            # Webcam + YOLO (MJPEG :8081) + galerie YuNet/SFace
 └── README.md
 ```
 
