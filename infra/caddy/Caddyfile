@@ -1,0 +1,48 @@
+# SENTINEL-X reverse proxy TLS (port 443 ; :80 occupé par apache hôte)
+{
+    auto_https off
+    admin off
+    servers {
+        protocols h1
+    }
+}
+
+(security_headers) {
+    header {
+        Strict-Transport-Security "max-age=86400"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss:; frame-ancestors 'none'"
+        -Server
+        Alt-Svc "clear"
+    }
+}
+
+:443 {
+    import security_headers
+    tls /certs/server.crt /certs/server.key
+
+    # camera : via l'API (authentification obligatoire), plus d'acces direct au service vision
+    handle /cam/* {
+        reverse_proxy sentinel-api:3000
+    }
+
+    @websockets {
+        path /ws*
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    handle @websockets {
+        reverse_proxy sentinel-api:3000
+    }
+
+    handle /api/* {
+        reverse_proxy sentinel-api:3000
+    }
+
+    handle {
+        reverse_proxy sentinel-api:3000
+    }
+}

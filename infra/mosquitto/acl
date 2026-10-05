@@ -1,0 +1,26 @@
+# SENTINEL-X ACL MQTT
+# ESP8266 node
+user sentinel-node-01
+topic write sentinel/sentinel-node-01/telemetry
+topic write sentinel/sentinel-node-01/alerts
+topic write sentinel/sentinel-node-01/status
+topic read sentinel/sentinel-node-01/cmd
+
+# API backend
+user sentinel-api
+topic read sentinel/#
+topic write sentinel/+/cmd
+topic write sentinel/config/#
+topic read $SYS/#
+
+# ML anomaly service
+user sentinel-ml
+topic read sentinel/+/telemetry
+topic read sentinel/config/#
+topic write sentinel/ai/alerts
+topic write sentinel/+/cmd
+topic write sentinel/ai/#
+
+# Lecture seule dashboard (optionnel)
+user dashboard-ro
+topic read sentinel/#
