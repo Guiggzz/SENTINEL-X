@@ -52,7 +52,7 @@ def arrow(ax, p1, p2, label=None, accent=False, both=False, lpos=0.5, loff=(0, 1
 def network():
     fig, ax = canvas(11.0, 6.4, 100, 60)
     ax.add_patch(Rectangle((1, 1), 98, 58, fill=False, edgecolor=RULE_S, linewidth=0.8, linestyle=(0, (4, 3))))
-    ax.text(2.2, 57.2, "RÉSEAU DE TABLE  ·  hotspot iPhone « Guiggzz »  ·  172.20.10.0/28 (actuel)",
+    ax.text(2.2, 57.2, "RÉSEAU DE TABLE  ·  hotspot iPhone  ·  172.20.10.0/28 (actuel)",
             fontsize=7.4, color=MUTED, family=MONO, va="center")
 
     box(ax, 4, 38, 18, 12, "ESP8266 NodeMCU v3", "sentinel-node-01\n172.20.10.2 (DHCP)")
@@ -62,8 +62,8 @@ def network():
     ax.add_patch(Rectangle((47, 3.5), 50.5, 51.5, facecolor=BG, edgecolor=INK, linewidth=1.0, zorder=1))
     ax.text(48.4, 52.8, "PC serveur — Option B  ·  172.20.10.4  ·  Ubuntu", fontsize=8.6, weight="semibold", color=INK)
     ax.add_patch(Rectangle((48.5, 5), 3.6, 44.5, facecolor=SURF, edgecolor=RULE_S, linewidth=0.8, zorder=2))
-    ax.text(50.3, 27, "UFW deny-in  ·  DOCKER-USER", rotation=90, ha="center", va="center", fontsize=6.8,
-            family=MONO, color=INK, zorder=3)
+    ax.text(50.3, 15.5, "UFW deny-in\nDOCKER-USER", rotation=90, ha="center", va="center", fontsize=6.4,
+            family=MONO, color=INK, zorder=3, linespacing=1.2)
 
     ax.add_patch(Rectangle((54.5, 20.5), 41.5, 30, facecolor=BG, edgecolor=RULE_S, linewidth=0.8, zorder=1.5))
     ax.text(55.5, 48.6, "Docker Compose  ·  réseaux sentinel-front / sentinel-back (internal)", fontsize=6.6,
@@ -80,14 +80,14 @@ def network():
 
     arrow(ax, (22, 44), (28, 33), "Wi-Fi", lpos=0.45, loff=(-2.4, 0.4))
     arrow(ax, (22, 15.5), (28, 27), "Wi-Fi", lpos=0.45, loff=(-2.4, -0.4))
-    arrow(ax, (42, 28.5), (56.5, 28.5), "MQTTS 8883", accent=True, both=True, lpos=0.42, loff=(0, 1.2))
-    arrow(ax, (42, 33.5), (56.5, 42), "HTTPS 443", accent=True, lpos=0.42, loff=(-1.0, 1.4))
+    arrow(ax, (42, 28.5), (56.5, 28.5), "MQTTS 8883", accent=True, both=True, lpos=0.2, loff=(0, 1.2))
+    arrow(ax, (42, 33.5), (56.5, 42), "HTTPS 443", accent=True, lpos=0.3, loff=(-1.0, 1.4))
     arrow(ax, (68.5, 42), (71, 42))
     arrow(ax, (83, 42), (84, 42))
     arrow(ax, (62.5, 32.5), (71, 38.5), "TLS", both=True, lpos=0.55, loff=(-1.6, 0.6))
     arrow(ax, (68.5, 28.5), (84, 28.5), "telemetry → ai/#, cmd", both=True, lpos=0.5, loff=(0, 1.3))
     arrow(ax, (89.5, 32.5), (89.5, 38), "SQL", both=True, lpos=0.5, loff=(2.6, 0))
-    arrow(ax, (77, 38), (77, 15.5), "/cam → :8081", lpos=0.33, loff=(0, 0))
+    arrow(ax, (77, 38), (77, 15.5), "/cam → :8081", lpos=0.88, loff=(0, 0))
     arrow(ax, (85, 11), (82, 11), "USB", lpos=0.5, loff=(0, 2.2))
     ax.text(56, 13.5, "MCO : /proc hôte\nlu par l'API", fontsize=6.4, family=MONO, color=MUTED, va="center")
     ax.text(2.2, 3.0, "Cible sujet : point d'accès dédié 192.168.10.0/24 (même schéma, sous-réseau étanche)",
@@ -162,6 +162,31 @@ def wiring():
     plt.close(fig)
 
 
+# ------------------------------------------------------------------ IA : avance vs règle statique
+def ia_lead():
+    # Données : ml/evaluation.md §3 (généré 2026-10-05T12:56:40Z)
+    rows = [("Fuite lente +20 ADC/min", 0.7, 11.5, "gaz > 300"),
+            ("Fuite lente +8 ADC/min", 0.8, 28.7, "gaz > 300"),
+            ("Échauffement +0,5 °C/min, gaz +2/min", 0.9, 32.0, "T > 40 °C"),
+            ("Échauffement +0,3 °C/min, gaz +1/min", 0.9, 53.3, "T > 40 °C")]
+    fig = plt.figure(figsize=(8.6, 2.9), facecolor=BG)
+    ax = fig.add_axes([0.30, 0.20, 0.66, 0.72]); ax.set_facecolor(BG)
+    ys = list(range(len(rows)))[::-1]
+    for y, (lbl, ia, st, rule) in zip(ys, rows):
+        ax.barh(y + 0.17, st, height=0.3, color=RULE_S)
+        ax.barh(y - 0.17, ia, height=0.3, color=ACC)
+        ax.text(st + 0.8, y + 0.17, f"{st:.1f} min  ({rule})", va="center", fontsize=7, family=MONO, color=MUTED)
+        ax.text(ia + 0.8, y - 0.17, f"{ia:.1f} min  (pré-alerte IA)", va="center", fontsize=7, family=MONO, color=ACC)
+    ax.set_yticks(ys); ax.set_yticklabels([r[0] for r in rows], fontsize=7.6, color=INK)
+    ax.set_xlim(0, 66); ax.set_xlabel("minutes depuis le début de la dérive", fontsize=7, color=MUTED)
+    ax.tick_params(axis="x", labelsize=6.8, colors=MUTED, length=2); ax.tick_params(axis="y", length=0)
+    for sp in ["top", "right", "left"]: ax.spines[sp].set_visible(False)
+    ax.spines["bottom"].set_color(RULE_S); ax.spines["bottom"].set_linewidth(0.8)
+    ax.grid(axis="x", color=RULE, linewidth=0.6); ax.set_axisbelow(True)
+    fig.savefig(f"{OUT}/ia-avance.png", dpi=220, facecolor=BG)
+    plt.close(fig)
+
+
 if __name__ == "__main__":
-    network(); wiring()
+    network(); wiring(); ia_lead()
     print("ok", OUT)

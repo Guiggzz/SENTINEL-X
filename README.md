@@ -397,6 +397,16 @@ cd ~/sentinel-x/infra/certs && ./gen-certs.sh --force
 cd ~/sentinel-x/infra && docker compose restart sentinel-mosquitto sentinel-proxy
 ```
 
+### MCO — rotation des journaux Docker
+Les services `sentinel-*` (dont Mosquitto) utilisent le driver Docker `json-file` avec
+`max-size: 10m` et `max-file: 3` (ancre `x-logging` dans `infra/docker-compose.yml`).
+Mosquitto écrit sur **stdout** (`log_dest stdout` dans `infra/mosquitto/config/mosquitto.conf`) ;
+la rotation est donc gérée par Docker, pas par un fichier interne au conteneur.
+
+Vérifier : `docker inspect sentinel-mosquitto --format '{{json .HostConfig.LogConfig}}'`
+
+Voir aussi `docs/reseau-table.md` (AP table 192.168.10.0/24) et `docs/preuves-securite.txt`.
+
 ### Rotation mots de passe MQTT
 ```bash
 rm -f ~/sentinel-x/infra/mosquitto/secrets/*.password

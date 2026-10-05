@@ -114,3 +114,30 @@ authorized_keys: 1 line(s); pubkey fingerprint:
   256 SHA256:7d6eNY0c1f7ZZbz0/TpWVsi1j4xEPQcETLhpJkD99TM guillaume.breon@gmail.com (ED25519)
 UFW: Status: active
 UFW 22/tcp: 22/tcp                     ALLOW       Anywhere                   # SENTINEL SSH key-only jury 22/tcp (v6)                ALLOW       Anywhere (v6)              # SENTINEL SSH key-only jury 
+
+### MCO — rotation logs Docker / Mosquitto — 2026-10-05 15:08 CEST
+Objectif: éviter croissance illimitée des journaux Mosquitto.
+
+Mise en œuvre (déjà active, pas de restart requis):
+- mosquitto.conf: log_dest stdout (pas de fichier interne /mosquitto/log)
+- docker-compose.yml: ancre x-logging json-file max-size=10m max-file=3
+  appliquée à mosquitto, db, api, ml, proxy (logging: *default-logging)
+- Vérif runtime: docker inspect sentinel-mosquitto → LogConfig
+  Type=json-file Config={max-size:10m, max-file:3}
+- Tailles logs json (approx): mosquitto ~156K, api ~364K, proxy ~76K, db ~12K, ml ~4K
+- Santé: sentinel-mosquitto healthy; API /health mqtt_connected=true database=ok
+- Télémétrie ESP: 60 lignes DB dans les 30 dernières secondes (table telemetry)
+
+### Réseau table AP 192.168.10.0/24 — profil prêt, activation différée — 2026-10-05 15:09 CEST
+Constat: une seule interface Wi‑Fi (wlp0s20f3) connectée au hotspot iPhone Guiggzz
+(172.20.10.4/28) = seul uplink Internet/Cursor. Pas de dongle USB Wi‑Fi.
+enxf6a31072f825 (ipheth iPhone USB) présent mais DOWN (tethering USB non activé).
+
+Fait (sans activer l'AP, sans flasher l'ESP):
+- Profil NM SENTINEL-X-AP : mode ap, SSID SENTINEL-X, ipv4.shared 192.168.10.1/24, autoconnect=no
+- dnsmasq-shared: /etc/NetworkManager/dnsmasq-shared.d/sentinel-x-table.conf (DHCP .10–.50)
+- UFW: ALLOW 443/8883 depuis 192.168.10.0/24
+- secrets.h: WIFI_SSID/WIFI_PASS/MQTT_HOST préparés pour SENTINEL-X / 192.168.10.1 (hors git, non flashé)
+- Doc: docs/reseau-table.md (plan IP + one-liners switchover)
+
+Uplink actuel inchangé: Guiggzz sur wlp0s20f3, gateway ping OK.
