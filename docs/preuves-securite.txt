@@ -100,3 +100,17 @@ To                         Action      From
 ### Note vision
 SENTINEL_VISION_HOST=0.0.0.0 nécessaire sous Linux pour host.docker.internal; UFW ALLOW 172.16.0.0/12 puis DENY 8081.
 ESP TLS: pin SHA1 fingerprint (MQTT_CERT_FINGERPRINT), buffers 2048/512.
+
+### OpenSSH key-only (SENTINEL-X) — 2026-10-05 15:06 CEST
+openssh-server: installed; ssh.service: active / enabled
+Drop-in: /etc/ssh/sshd_config.d/sentinel-x.conf
+sshd -T effective:
+  permitrootlogin no
+  pubkeyauthentication yes
+  passwordauthentication no
+  kbdinteractiveauthentication no
+  x11forwarding no
+authorized_keys: 1 line(s); pubkey fingerprint:
+  256 SHA256:7d6eNY0c1f7ZZbz0/TpWVsi1j4xEPQcETLhpJkD99TM guillaume.breon@gmail.com (ED25519)
+UFW: Status: active
+UFW 22/tcp: 22/tcp                     ALLOW       Anywhere                   # SENTINEL SSH key-only jury 22/tcp (v6)                ALLOW       Anywhere (v6)              # SENTINEL SSH key-only jury 
