@@ -28,7 +28,7 @@ def _f(name: str, default: float) -> float:
 @dataclass(frozen=True)
 class IdentityConfig:
     enabled: bool = True
-    window_s: float = 8.0       # temps laissé pour s'identifier
+    window_s: float = 5.0       # temps laissé pour s'identifier
     known_hold_s: float = 0.5   # « connu + vivant » doit tenir ce temps
     auth_grace_s: float = 10.0  # reste autorisé N s après la dernière vue du visage connu
     idle_s: float = 5.0         # plus personne depuis N s -> retour au repos
