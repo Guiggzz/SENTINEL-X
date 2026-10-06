@@ -20,21 +20,24 @@
 * { box-sizing: border-box; }
 html { font-family: "Ubuntu Sans", "Ubuntu", "Helvetica Neue", Arial, sans-serif; color: var(--ink); font-size: 9.6pt; line-height: 1.45; }
 body { margin: 0; }
+a { color: inherit; text-decoration: none; border-bottom: 0.6pt solid var(--rule-s); }
 .mono, code, td.m, .k { font-family: "DejaVu Sans Mono", "Liberation Mono", monospace; }
 code { font-size: 0.86em; background: var(--surface); padding: 0 2px; }
 h1 { font-size: 15pt; font-weight: 600; letter-spacing: 0.02em; margin: 0 0 2mm; padding-bottom: 2mm; border-bottom: 0.8pt solid var(--ink);
      string-set: chap content(); page-break-before: always; }
 h1 .n { font-family: "DejaVu Sans Mono"; color: var(--accent); font-weight: 400; margin-right: 3mm; }
 h2 { font-size: 10.5pt; font-weight: 600; margin: 5mm 0 2mm; page-break-after: avoid; }
-h3 { font-size: 9pt; font-weight: 600; margin: 4mm 0 1.5mm; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+h3 { font-size: 9pt; font-weight: 600; margin: 4mm 0 1.5mm; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; page-break-after: avoid; }
 p { margin: 0 0 2.4mm; text-align: left; hyphens: auto; }
 .lead { color: var(--muted); font-size: 9.2pt; margin-bottom: 4mm; }
-ul { margin: 0 0 3mm; padding-left: 4.5mm; } li { margin-bottom: 0.8mm; }
+ul, ol { margin: 0 0 3mm; padding-left: 4.5mm; } li { margin-bottom: 0.8mm; }
 table { width: 100%; border-collapse: collapse; margin: 1.5mm 0 4mm; font-size: 8.3pt; page-break-inside: auto; }
 th { text-align: left; font-weight: 400; color: var(--muted); font-size: 7.6pt; border-bottom: 0.8pt solid var(--ink); padding: 1.4mm 2mm 1.2mm 0; }
 td { border-bottom: 0.6pt solid var(--rule); padding: 1.4mm 2mm 1.4mm 0; vertical-align: top; }
 tr { page-break-inside: avoid; }
 td.m { font-size: 7.6pt; }
+table.rows td { height: 9mm; }
+td.todo, span.todo { color: var(--muted); font-size: 7.4pt; font-family: "DejaVu Sans Mono"; }
 figure { margin: 2mm 0 4mm; page-break-inside: avoid; }
 figure img { width: 100%; } figure.n90 { text-align: center; } figure.n90 img { width: 84%; } figure.n78 { text-align: center; } figure.n78 img { width: 76%; } figure.n78 figcaption { text-align: left; } figure.n90 figcaption { text-align: left; } figure img { border: 0.6pt solid var(--rule); }
 figcaption { font-size: 7.6pt; color: var(--muted); font-family: "DejaVu Sans Mono"; margin-top: 1.2mm; }
@@ -120,8 +123,9 @@ pre { font-family: "DejaVu Sans Mono"; font-size: 7.2pt; background: var(--surfa
     <tr><td class="k">Cadre</td><td>EPSI — Workshop Bac+4 (M1), octobre 2026</td></tr>
     <tr><td class="k">Option technique</td><td>Option B — topologie « Edge-to-Server » : le PC d'un apprenant joue le rôle de serveur local</td></tr>
     <tr><td class="k">Groupe</td><td class="mono">M1-G__</td></tr>
-    <tr><td class="k">Version du document</td><td>5 octobre 2026 — dépôt prévu jeudi 8 octobre 2026</td></tr>
+    <tr><td class="k">Version du document</td><td>6 octobre 2026 — dépôt jeudi 8 octobre 2026 (rapport d'audit complété après le pentest)</td></tr>
     <tr><td class="k">Fichier</td><td class="mono">Workshop2026-M1-G__-Dossier.pdf</td></tr>
+    <tr><td class="k">Code source</td><td class="mono"><a href="https://github.com/Guiggzz/SENTINEL-X">https://github.com/Guiggzz/SENTINEL-X</a></td></tr>
   </table>
   <div class="team">
     <h3>Équipe (consortium)</h3>
@@ -135,7 +139,8 @@ pre { font-family: "DejaVu Sans Mono"; font-size: 7.2pt; background: var(--surfa
   <div><span class="n">01</span><span class="t">Architecture et schéma réseau</span><span class="p" data-href="#s1"></span></div>
   <div><span class="n">02</span><span class="t">Schéma de câblage électronique ESP8266</span><span class="p" data-href="#s2"></span></div>
   <div><span class="n">03</span><span class="t">Matrice de sécurité — TLS, hardening, preuves</span><span class="p" data-href="#s3"></span></div>
-  <div><span class="n">04</span><span class="t">Documentation de l'IA — maintenance prédictive et vision</span><span class="p" data-href="#s4"></span></div>
+  <div><span class="n">04</span><span class="t">Documentation de l'IA — maintenance prédictive, vision, reconnaissance faciale</span><span class="p" data-href="#s4"></span></div>
+  <div><span class="n">05</span><span class="t">Rapport d'audit post-pentest (jeudi 08/10)</span><span class="p" data-href="#s5"></span></div>
   <div><span class="n">A3</span><span class="t">Annexe — poster A3 paysage</span><span class="p" data-href="#a3"></span></div>
 </div>
 
@@ -144,15 +149,17 @@ pre { font-family: "DejaVu Sans Mono"; font-size: 7.2pt; background: var(--surfa
 l'humidité, le gaz/fumée et la présence, affiche son état sur un écran OLED et pilote un buzzer et deux LED. Il publie ses mesures
 en MQTT chiffré (MQTTS) vers une stack Docker hébergée sur le PC portable d'un membre de l'équipe (Option B). Cette stack stocke les
 données dans PostgreSQL, les expose sur un tableau de bord HTTPS temps réel, et alimente un service d'IA qui détecte les dérives
-anormales des capteurs sans seuil statique. Une webcam USB reliée au PC alimente un service de vision YOLOv8n qui détecte les
-personnes et déclenche l'alarme intrusion lorsqu'elle est armée.</p>
+anormales des capteurs sans seuil statique. Une webcam USB reliée au PC alimente le service de vision : YOLOv8n détecte les
+personnes, puis un portillon d'identification demande à la personne de s'identifier (bips et écran OLED) et la reconnaît par son
+visage (YuNet + SFace, contrôle de vivacité MiniFASNet). Une personne non identifiée en 5 s est journalisée et signalée sur Discord avec sa photo ;
+la sirène ne sonne que si l'« Alarme reconnaissance » est armée.</p>
 
 <div class="strip">
   <div class="s"><span class="l">Conteneurs Docker</span><span class="v">5</span></div>
-  <div class="s"><span class="l">MQTT broker</span><span class="v">TLS 1.3</span></div>
-  <div class="s"><span class="l">Inférence YOLO / trame</span><span class="v">≈ 49 ms</span></div>
+  <div class="s"><span class="l">Flux chiffrés</span><span class="v">TLS 1.3</span></div>
+  <div class="s"><span class="l">Inférence YOLO / trame</span><span class="v">≈ 42 ms</span></div>
   <div class="s"><span class="l">Rappel spray butane</span><span class="v a">20/20</span></div>
-  <div class="s"><span class="l">Faux incidents (holdout)</span><span class="v">0</span></div>
+  <div class="s"><span class="l">Fenêtre d'identification</span><span class="v">5 s</span></div>
 </div>
 
 <table>
@@ -163,40 +170,66 @@ personnes et déclenche l'alarme intrusion lorsqu'elle est armée.</p>
   <tr><td>Base de données</td><td>PostgreSQL 16 (volume nommé, aucun port publié)</td><td class="m">infra/docker-compose.yml</td></tr>
   <tr><td>IA prédictive</td><td>Isolation Forest (scikit-learn), 8 features cinétiques</td><td class="m">ml/</td></tr>
   <tr><td>Vision</td><td>Ultralytics YOLOv8n sur CPU, flux MJPEG, service systemd utilisateur</td><td class="m">vision/</td></tr>
-  <tr><td>Reverse proxy</td><td>Caddy 2.8, HTTPS 443, en-têtes de sécurité (HSTS, CSP, X-Frame-Options)</td><td class="m">infra/caddy/Caddyfile</td></tr>
+  <tr><td>Reconnaissance faciale</td><td>OpenCV YuNet (détection) + SFace (empreinte), anti-spoofing MiniFASNet, portillon d'identification</td><td class="m">vision/face_*.py, identity.py</td></tr>
+  <tr><td>Alerte externe</td><td>Webhook Discord (HTTPS sortant), photo de la personne non identifiée</td><td class="m">vision/discord_alert.py</td></tr>
+  <tr><td>Reverse proxy</td><td>Caddy 2.8, HTTPS 443, redirection 80 → 443, en-têtes de sécurité (HSTS, CSP stricte, X-Frame-Options)</td><td class="m">infra/caddy/Caddyfile</td></tr>
 </table>
+
+<h2>Livrables</h2>
+<table>
+  <tr><th style="width:34%">Livrable</th><th>Contenu</th></tr>
+  <tr><td class="m">Workshop2026-M1-G__-Dossier.pdf</td><td>le présent rapport : schéma réseau, câblage, matrice de sécurité, IA, rapport d'audit post-pentest, poster A3 en annexe</td></tr>
+  <tr><td class="m">Workshop2026-M1-G__-Pres.pptx</td><td>support de la soutenance du vendredi 9 octobre</td></tr>
+  <tr><td class="m">Workshop2026-M1-G__-VidDrop.mp4</td><td>vidéo verticale « Sentinel Drop » (60 s)</td></tr>
+  <tr><td>Code source</td><td>dépôt GitHub <a class="mono" href="https://github.com/Guiggzz/SENTINEL-X">https://github.com/Guiggzz/SENTINEL-X</a> (README détaillé)</td></tr>
+</table>
+<p>Aucun secret n'est versionné : <code>firmware/sentinel_node/secrets.h</code>, <code>infra/.env</code>, <code>infra/OPERATOR_PASSWORD.txt</code>,
+les fichiers de mots de passe Mosquitto, les clés privées TLS et le mot de passe OTA sont exclus par <code>.gitignore</code>
+(aucun de ces fichiers dans l'historique git, contrôle du 6 octobre 2026). L'URL du webhook Discord est stockée hors du dépôt.</p>
 <p class="lead">Toutes les valeurs chiffrées de ce rapport proviennent du dépôt (README, <code>ml/evaluation.md</code>, fichiers d'infrastructure,
-commentaires du firmware) ou de mesures relevées sur la machine le 5 octobre 2026.</p>
+code du firmware et de la vision) ou de mesures relevées sur la machine les 5 et 6 octobre 2026.</p>
 
 <!-- ======================= 01 RÉSEAU ======================= -->
 <h1 id="s1"><span class="n">01</span>Architecture et schéma réseau</h1>
 <p class="lead">Option B : le PC apprenant (Ubuntu, interface Wi-Fi <code>wlp0s20f3</code>) héberge toute la stack. Le boîtier ne contient que
 l'ESP8266 et ses capteurs. La webcam est branchée en USB sur le PC.</p>
-<figure><img src="file:///home/guiggzz/sentinel-x/docs/assets/schema-reseau.png"><figcaption>Fig. 1 — Topologie de table et flux. Accent : flux chiffrés entrants autorisés par le pare-feu.</figcaption></figure>
+<figure><img src="file:///home/guiggzz/sentinel-x/docs/assets/schema-reseau.png"><figcaption>Fig. 1 — Topologie de table et flux. Accent : flux chiffrés entrants autorisés par le pare-feu ; pointillés : service externe.</figcaption></figure>
 
 <h2>Plan d'adressage</h2>
 <table>
-  <tr><th>Élément</th><th>Actuel (hotspot iPhone)</th><th>Cible sujet (point d'accès dédié) — proposition</th></tr>
-  <tr><td>Sous-réseau</td><td class="m">172.20.10.0/28 (14 hôtes utiles)</td><td class="m">192.168.10.0/24</td></tr>
-  <tr><td>Passerelle / AP</td><td class="m">172.20.10.1 (iPhone)</td><td class="m">192.168.10.1 (AP de table)</td></tr>
-  <tr><td>PC serveur</td><td class="m">172.20.10.4 (DHCP)</td><td class="m">adresse fixe ou réservation DHCP</td></tr>
-  <tr><td>ESP8266 sentinel-node-01</td><td class="m">172.20.10.2 (observé dans les journaux Mosquitto)</td><td class="m">réservation DHCP</td></tr>
-  <tr><td>Règle MQTTS</td><td class="m">8883 autorisé depuis 172.20.10.0/28 uniquement</td><td class="m">même règle, source 192.168.10.0/24</td></tr>
+  <tr><th>Élément</th><th>Actuel (hotspot iPhone « Guiggzz »)</th><th>Cible sujet (point d'accès dédié) — profil prêt</th></tr>
+  <tr><td>Sous-réseau</td><td class="m">172.20.10.0/28 (14 hôtes utiles)</td><td class="m">192.168.10.0/24 (SSID SENTINEL-X)</td></tr>
+  <tr><td>Passerelle / AP</td><td class="m">172.20.10.1 (iPhone)</td><td class="m">192.168.10.1 (PC en mode AP)</td></tr>
+  <tr><td>PC serveur</td><td class="m">172.20.10.4 (DHCP)</td><td class="m">192.168.10.1</td></tr>
+  <tr><td>ESP8266 sentinel-node-01</td><td class="m">172.20.10.2 (observé dans les journaux Mosquitto)</td><td class="m">pool DHCP .10 – .50</td></tr>
+  <tr><td>Règle MQTTS</td><td class="m">8883 autorisé depuis 172.20.10.0/28 uniquement</td><td class="m">même règle, déjà ouverte pour 192.168.10.0/24</td></tr>
 </table>
-<p>Le /28 du hotspot limite naturellement la table à 14 hôtes et isole l'équipe des réseaux des autres groupes. Le passage
-sur le point d'accès dédié demandé par le sujet ne modifie que la variable <code>HOTSPOT_SUBNET</code> de
-<code>infra/hardening/harden.sh</code> et l'hôte MQTT du firmware.</p>
+<h3>Pourquoi un hotspot plutôt que le point d'accès dédié</h3>
+<p>Le sujet demande un point d'accès dédié et un sous-réseau de table étanche. Le profil NetworkManager <code>SENTINEL-X-AP</code>
+(192.168.10.0/24, DHCP .10 – .50) est prêt et les règles UFW / DOCKER-USER l'autorisent déjà, mais il n'est pas activé : le portable n'a
+qu'une interface Wi-Fi, et la passer en mode AP coupe le hotspot, seul accès Internet de l'équipe (<code>docs/reseau-table.md</code>).
+Le hotspot iPhone remplit le même rôle d'isolation : il n'héberge que les équipements de la table, son /28 limite le réseau à
+14 hôtes, et le PC y est le seul serveur. Les ports exposés sont filtrés par UFW et, pour les ports publiés par Docker, par la chaîne
+DOCKER-USER (8883 n'est accepté que depuis les sous-réseaux de table). La bascule vers l'AP ne demande que l'activation du profil
+et le changement de <code>MQTT_HOST</code> dans le firmware.</p>
 
 <h2>Matrice des flux</h2>
 <table>
   <tr><th>Source → destination</th><th>Port / protocole</th><th>Exposition</th><th>Protection</th></tr>
   <tr><td>ESP8266 → sentinel-mosquitto</td><td class="m">8883 MQTTS</td><td>LAN, sous-réseau de table</td><td>TLS, pin SHA1 du certificat serveur, utilisateur dédié + ACL</td></tr>
-  <tr><td>Navigateur → sentinel-proxy</td><td class="m">443 HTTPS</td><td>LAN</td><td>TLS (CA locale), session HttpOnly/Secure/SameSite=Strict</td></tr>
+  <tr><td>Navigateur → sentinel-proxy</td><td class="m">443 HTTPS</td><td>LAN</td><td>TLS 1.2/1.3 (CA locale), session HttpOnly/Secure/SameSite=Strict, contrôle d'Origin</td></tr>
+  <tr><td>Navigateur → sentinel-proxy</td><td class="m">80 HTTP</td><td>LAN</td><td>aucun contenu : redirection 308 vers HTTPS</td></tr>
+  <tr><td>Administration → PC</td><td class="m">22 SSH</td><td>LAN</td><td>clé uniquement (mot de passe et root refusés), UFW <code>limit</code></td></tr>
   <tr><td>sentinel-proxy → sentinel-api</td><td class="m">3000 HTTP</td><td>réseau Docker</td><td>publié seulement sur 127.0.0.1, UFW deny 3000</td></tr>
-  <tr><td>sentinel-api → sentinel-vision</td><td class="m">8081 HTTP</td><td>hôte (host.docker.internal)</td><td>UFW : autorisé depuis 172.16.0.0/12, refusé ailleurs ; accès client via <code>/cam</code> authentifié</td></tr>
+  <tr><td>sentinel-api → sentinel-vision</td><td class="m">8081 HTTP</td><td>172.22.0.1 (passerelle Docker)</td><td>pas joignable depuis le Wi-Fi ; Bearer pour <code>/faces</code> ; accès client via <code>/cam/*</code> authentifié</td></tr>
+  <tr><td>sentinel-vision → sentinel-api</td><td class="m">3000 HTTP</td><td>hôte local</td><td><code>POST /api/v1/alerts</code> avec Bearer <code>API_TOKEN</code></td></tr>
+  <tr><td>sentinel-vision → Discord</td><td class="m">443 HTTPS sortant</td><td>Internet (hotspot)</td><td>URL du webhook hors dépôt ; photo envoyée seulement si non identifié ; 1 envoi / 30 s au plus</td></tr>
   <tr><td>api / ml → sentinel-db</td><td class="m">5432</td><td>réseau <code>sentinel-back</code> (internal)</td><td>aucun port hôte</td></tr>
   <tr><td>api / ml → sentinel-mosquitto</td><td class="m">8883 MQTTS</td><td>réseau Docker</td><td>TLS + comptes séparés (<code>sentinel-ml</code> écrit <code>sentinel/ai/#</code> et <code>sentinel/+/cmd</code>)</td></tr>
 </table>
+<p><b>Flux d'identification.</b> Service vision → API (<code>POST /api/v1/alerts</code>, états <code>identify_start</code>, <code>identified</code>,
+<code>intrusion</code>…) → MQTT <code>sentinel/sentinel-node-01/cmd</code> → ESP (bips, écran OLED, sirène). En parallèle, la vision envoie
+directement la photo à Discord quand la personne n'est pas identifiée (détail en §4.4).</p>
 
 <h2>Topics MQTT</h2>
 <table>
@@ -204,7 +237,7 @@ sur le point d'accès dédié demandé par le sujet ne modifie que la variable <
   <tr><td class="m">sentinel/{device_id}/telemetry</td><td>ESP → broker</td><td>JSON capteurs (température, humidité, gaz, présence, actionneurs, RSSI)</td></tr>
   <tr><td class="m">sentinel/{device_id}/alerts</td><td>ESP → broker</td><td>événements présence / actionneurs</td></tr>
   <tr><td class="m">sentinel/{device_id}/status</td><td>ESP → broker (retained)</td><td><code>online</code> / <code>offline</code></td></tr>
-  <tr><td class="m">sentinel/{device_id}/cmd</td><td>API, ML → ESP</td><td>buzzer (songs <code>gaz</code>, <code>intrus</code>…), LED, mode auto</td></tr>
+  <tr><td class="m">sentinel/{device_id}/cmd</td><td>API, ML → ESP</td><td>buzzer (songs <code>gaz</code>, <code>intrus</code>…), bips, LED, mode auto, écran OLED (<code>display</code> : identify / authorized / intrusion / normal)</td></tr>
   <tr><td class="m">sentinel/ai/&lt;device&gt;/risk · ai/alerts · ai/status</td><td>ML → broker</td><td>risque 0-100, incidents IA, LWT du service</td></tr>
 </table>
 
@@ -214,8 +247,8 @@ sur le point d'accès dédié demandé par le sujet ne modifie que la variable <
   <tr><td class="m">sentinel-mosquitto</td><td class="m">eclipse-mosquitto:2.0.20</td><td class="m">8883</td><td class="m">front, back</td><td class="m">128 Mo · 0,5 CPU · 100 PID</td></tr>
   <tr><td class="m">sentinel-db</td><td class="m">postgres:16-alpine</td><td class="m">aucun</td><td class="m">back</td><td class="m">512 Mo · 1 CPU · 200 PID</td></tr>
   <tr><td class="m">sentinel-api</td><td class="m">build backend/</td><td class="m">127.0.0.1:3000</td><td class="m">front, back</td><td class="m">512 Mo · 1 CPU · 200 PID</td></tr>
-  <tr><td class="m">sentinel-ml</td><td class="m">build ml/</td><td class="m">aucun</td><td class="m">front, back</td><td class="m">768 Mo · 1 CPU · 200 PID</td></tr>
-  <tr><td class="m">sentinel-proxy</td><td class="m">caddy:2.8-alpine</td><td class="m">443</td><td class="m">front</td><td class="m">128 Mo · 0,5 CPU · 100 PID</td></tr>
+  <tr><td class="m">sentinel-ml</td><td class="m">build ml/</td><td class="m">aucun</td><td class="m">back</td><td class="m">768 Mo · 1 CPU · 200 PID</td></tr>
+  <tr><td class="m">sentinel-proxy</td><td class="m">caddy:2.8-alpine</td><td class="m">80 (→ 308) · 443</td><td class="m">front</td><td class="m">128 Mo · 0,5 CPU · 100 PID</td></tr>
 </table>
 <p>Journaux Docker en rotation (<code>json-file</code>, 10 Mo × 3 fichiers par conteneur) pour éviter la saturation du disque sous
 l'afflux de messages MQTT. Le bloc MCO du dashboard (<code>/api/v1/system</code>) suit CPU, RAM et disque de l'hôte, le débit MQTT et
@@ -225,17 +258,17 @@ l'état des sondes mosquitto / db / ml / nœud.</p>
 <h1 id="s2"><span class="n">02</span>Schéma de câblage électronique ESP8266</h1>
 <p class="lead">Carte NodeMCU v3 alimentée en USB. Affectation des broches relevée dans
 <code>firmware/sentinel_node/sentinel_node.ino</code> : « DHT22 D5 | PIR D6 | MQ-2 A0 | OLED SDA D2 / SCL D1 | Buzzer D7 | LED rouge D0 | LED verte D8 ».</p>
-<figure class="n90"><img src="file:///home/guiggzz/sentinel-x/docs/assets/schema-cablage.png"><figcaption>Fig. 2 — Câblage du nœud sentinel-node-01.</figcaption></figure>
+<figure class="n78"><img src="file:///home/guiggzz/sentinel-x/docs/assets/schema-cablage.png"><figcaption>Fig. 2 — Câblage du nœud sentinel-node-01.</figcaption></figure>
 
 <table>
   <tr><th>Composant</th><th>Broche ESP</th><th>Alimentation</th><th>Remarque</th></tr>
   <tr><td>DHT22 (température / humidité)</td><td class="m">D5 (GPIO14)</td><td class="m">3V3 · GND</td><td>lecture toutes les 2 s (limite du capteur)</td></tr>
-  <tr><td>OLED SSD1306 0,96" I2C</td><td class="m">D1 SCL · D2 SDA</td><td class="m">3V3 · GND</td><td>adresse 0x3C, <code>Wire.begin(D2, D1)</code> ; affiche IP, état MQTTS, alertes</td></tr>
+  <tr><td>OLED SSD1306 0,96" I2C</td><td class="m">D1 SCL · D2 SDA</td><td class="m">3V3 · GND</td><td>adresse 0x3C, <code>Wire.begin(D2, D1)</code> ; affiche IP, état MQTTS, alertes ; écrans du portillon (commande <code>display</code>)</td></tr>
   <tr><td>PIR HW-416A</td><td class="m">D6 (GPIO12)</td><td class="m">5 V (VU) · GND</td><td>sortie logique 3,3 V ; anti-rebond logiciel</td></tr>
   <tr><td>MQ-2 gaz / fumée</td><td class="m">A0 (sortie AO)</td><td class="m">5 V (VU) · GND</td><td>chauffe nécessaire après mise sous tension</td></tr>
-  <tr><td>Buzzer piézo</td><td class="m">D7 (GPIO13)</td><td class="m">— · GND</td><td>sirènes <code>gaz</code> et <code>intrus</code> (<code>alarms.h</code>)</td></tr>
+  <tr><td>Buzzer piézo</td><td class="m">D7 (GPIO13)</td><td class="m">— · GND</td><td>sirènes <code>gaz</code> et <code>intrus</code> (<code>alarms.h</code>), bips « identifiez-vous »</td></tr>
   <tr><td>LED rouge</td><td class="m">D0 (GPIO16)</td><td class="m">via R 220–330 Ω → GND</td><td>présence, alarme ; clignote si déconnecté</td></tr>
-  <tr><td>LED verte</td><td class="m">D8 (GPIO15)</td><td class="m">via R 220–330 Ω → GND</td><td>connecté, RAS</td></tr>
+  <tr><td>LED verte</td><td class="m">D8 (GPIO15)</td><td class="m">via R 220–330 Ω → GND</td><td>connecté, RAS ; « accès autorisé »</td></tr>
 </table>
 
 <h2>Points d'attention</h2>
@@ -243,64 +276,93 @@ l'état des sondes mosquitto / db / ml / nœud.</p>
   <li><b>D8 / GPIO15</b> doit être au niveau bas au démarrage : la LED et sa résistance vers GND jouent le rôle de pull-down, ne pas y brancher de pull-up.</li>
   <li><b>A0</b> : l'entrée analogique de la NodeMCU accepte 0–3,3 V grâce à son pont diviseur. Le MQ-2 étant alimenté en 5 V, vérifier que la tension AO reste dans cette plage (un pont diviseur externe sinon).</li>
   <li><b>Masse commune</b> à tous les modules ; le 5 V est pris sur VU (USB). <b>Cadence</b> : le firmware actuel publie la télémétrie toutes les 0,5 s (<code>TELEMETRY_MS</code>), le DHT22 n'est relu que toutes les 2 s ; le modèle IA raisonne sur une période nominale de 2 s.</li>
-  <li><b>PIR</b> : jugé instable sur table, il reste publié dans la télémétrie mais l'alarme intrusion s'appuie sur la vision YOLO.</li>
+  <li><b>PIR</b> : jugé instable sur table, il reste publié dans la télémétrie ; l'alarme intrusion s'appuie sur la vision (YOLO et portillon).</li>
 </ul>
 
 <!-- ======================= 03 SÉCURITÉ ======================= -->
 <h1 id="s3"><span class="n">03</span>Matrice de sécurité</h1>
-<p class="lead">Source : <code>docs/matrice-securite.md</code>, preuves issues de <code>infra/hardening/verify.sh</code> (<code>docs/preuves-securite.txt</code>, exécution du 5 octobre 2026, 14:07)
-et contrôles complémentaires du 5 octobre 2026 vers 15:00.</p>
+<p class="lead">Sources : <code>docs/matrice-securite.md</code>, <code>docs/preuves-securite.txt</code> (durcissement avant pentest du 6 octobre 2026, 09:52),
+journal de <code>infra/harden-root.sh</code> (6 octobre 2026, 10:24) et contrôles en lecture seule du 6 octobre 2026 vers 11:40
+(<code>infra/hardening/check-demo.sh</code>, <code>ss</code>, <code>curl</code>, <code>docker inspect</code>).</p>
 
 <table>
-  <tr><th style="width:15%">Menace</th><th style="width:17%">Vecteur (jury / pentest)</th><th style="width:16%">Impact</th><th>Mitigation implémentée</th><th style="width:20%">Risque résiduel</th></tr>
-  <tr><td>MitM / sniffing MQTT</td><td>Wireshark sur le hotspot</td><td>Lecture télémétrie, injection de commandes</td><td>MQTTS (port 8883, TLS 1.2 minimum, négocié en TLS 1.3), certificat avec SAN, authentification + ACL ; ESP : pin SHA1 du certificat (<code>MQTT_CERT_FINGERPRINT</code>)</td><td>CA auto-signée à importer dans les navigateurs</td></tr>
-  <tr><td>Injection de payload MQTT</td><td>Client rogue / Metasploit</td><td>Commandes ESP, fausses alertes</td><td><code>allow_anonymous false</code>, ACL par rôle, mots de passe forts générés</td><td>Compromission d'un secret MQTT</td></tr>
-  <tr><td>DoS broker</td><td>Flood connexions / messages</td><td>Perte de la supervision</td><td><code>max_connections 50</code>, <code>max_inflight_messages 20</code>, <code>max_queued_messages 100</code>, <code>max_packet_size 8192</code>, rotation des logs, limites CPU/RAM</td><td>DoS L2/L3 (Wi-Fi) hors MQTT</td></tr>
-  <tr><td>Brute force API</td><td>POST login / commandes</td><td>Prise de contrôle du dashboard</td><td>Session HttpOnly + Secure + SameSite=Strict, rate-limit login (8/min/IP) et commandes (30/min/IP), Bearer <code>API_TOKEN</code> pour les clients machine</td><td>Mot de passe opérateur faible s'il n'est pas changé</td></tr>
-  <tr><td>Exposition de services</td><td>Nmap</td><td>Surface d'attaque</td><td>UFW (deny par défaut) + chaîne DOCKER-USER ; 1883, 3000 et 8081 non exposés au LAN ; HTTPS seul pour l'interface</td><td>Retour d'un bind 0.0.0.0</td></tr>
+  <tr><th style="width:14%">Menace</th><th style="width:15%">Vecteur (jury / pentest)</th><th style="width:14%">Impact</th><th>Mitigation implémentée</th><th style="width:19%">Risque résiduel</th></tr>
+  <tr><td>MitM / sniffing MQTT</td><td>Wireshark sur le hotspot</td><td>Lecture télémétrie, injection de commandes</td><td>MQTTS seul (8883, TLS 1.2 minimum, négocié en TLS 1.3), 1883 fermé ; ESP : pin SHA1 du certificat (<code>MQTT_CERT_FINGERPRINT</code>)</td><td>Certificat auto-signé (CA locale à importer)</td></tr>
+  <tr><td>Injection de payload MQTT</td><td>Client rogue / Metasploit</td><td>Commandes ESP, fausses alertes</td><td><code>allow_anonymous false</code>, client-id vide refusé, ACL par utilisateur (le nœud n'écrit que ses 3 topics et ne lit que son <code>cmd</code>) ; <code>/commands</code> en liste blanche (actions, mélodies, durées, <code>device_id</code> filtré)</td><td>Compromission d'un secret MQTT</td></tr>
+  <tr><td>DoS broker / proxy</td><td>Flood connexions / messages</td><td>Perte de la supervision</td><td><code>max_connections 50</code>, <code>max_inflight_messages 20</code>, <code>max_queued_messages 100</code>, <code>max_packet_size 8192</code>, <code>max_queued_bytes</code> 1 Mo ; Caddy : timeouts, corps limité ; limites CPU/RAM/PID</td><td>DoS Wi-Fi (L2/L3) hors MQTT</td></tr>
+  <tr><td>Brute force login</td><td>POST <code>/auth/login</code></td><td>Prise de contrôle du dashboard</td><td>5 échecs / 15 min par IP → verrouillage 15 min, 10 requêtes/min ; journal <code>LOGIN_FAIL</code> / <code>LOGIN_LOCKOUT</code></td><td>Verrouillage en mémoire (remis à zéro au redémarrage de l'API)</td></tr>
+  <tr><td>Vol de session, CSRF, XSS</td><td>Page tierce, script injecté</td><td>Commandes au nom de l'opérateur</td><td>Cookie HttpOnly + Secure + SameSite=Strict, 4 h, révoqué au logout ; Origin/Referer obligatoire sur les requêtes par cookie (403 sinon) ; anti-CSWSH sur <code>/ws</code> ; CSP stricte sans <code>unsafe-inline</code>, X-Frame-Options DENY</td><td>Sessions en mémoire</td></tr>
+  <tr><td>Exposition de services</td><td>Nmap</td><td>Surface d'attaque</td><td>UFW verrouillé (deny par défaut) ; ouverts : 22, 80, 443, 8883 ; Samba et Apache arrêtés ; conteneurs healthai-* arrêtés ; DOCKER-USER pour 8883</td><td>Retour d'un service ou d'un bind 0.0.0.0 (recontrôle avant pentest)</td></tr>
+  <tr><td>Accès caméra</td><td>URL directe du flux</td><td>Fuite d'images</td><td>Service vision lié à 172.22.0.1:8081 (passerelle Docker) ; flux servi via <code>/cam/*</code> derrière le cookie de session (401 sans session)</td><td>—</td></tr>
+  <tr><td>Usurpation de visage</td><td>Photo ou écran devant la webcam</td><td>Accès « autorisé » indu</td><td>Vivacité MiniFASNet : un visage connu n'est accepté que s'il est vivant ; leurre = intrusion</td><td>Attaques de haute qualité (masque, vidéo plein écran)</td></tr>
   <tr><td>Accès physique ESP</td><td>Vol, dump flash</td><td>Secrets Wi-Fi / MQTT</td><td><code>secrets.h</code> hors git, utilisateur MQTT dédié restreint par ACL</td><td>Flash lisible avec accès physique</td></tr>
-  <tr><td>Évasion de conteneur</td><td>CVE / mauvaise config Docker</td><td>Accès hôte</td><td>non-root, <code>read_only</code>, <code>cap_drop ALL</code>, <code>no-new-privileges</code>, limites de ressources</td><td>Docker rootful</td></tr>
-  <tr><td>Client MQTT illégitime</td><td>Connexion avec un mauvais compte</td><td>Lecture / écriture hors périmètre</td><td>ACL stricte par utilisateur</td><td>Fuite du fichier <code>.env</code></td></tr>
-  <tr><td>Accès caméra</td><td>URL directe du flux</td><td>Fuite d'images</td><td>Flux servi par l'API sur <code>/cam/*</code> derrière authentification ; port 8081 filtré</td><td>—</td></tr>
+  <tr><td>Évasion de conteneur</td><td>CVE / mauvaise config Docker</td><td>Accès hôte</td><td><code>cap_drop ALL</code> partout, <code>no-new-privileges</code>, <code>read_only</code> (api, ml, proxy), api/ml non-root, limites</td><td>Docker rootful</td></tr>
 </table>
 
-<h2>État du durcissement</h2>
+<h2 style="page-break-before: always; margin-top: 0">État du durcissement</h2>
 <table>
-  <tr><th style="width:30%">Mesure</th><th style="width:14%">État</th><th>Preuve / commentaire</th></tr>
-  <tr><td>MQTTS 8883, port 1883 fermé</td><td><span class="tag ok">Fait</span></td><td><code>openssl s_client</code> : TLSv1.3, TLS_AES_256_GCM_SHA384 ; MQTT anonyme refusé ; 1883 non joignable ; seul <code>listener 8883</code> dans mosquitto.conf</td></tr>
-  <tr><td>ESP en MQTTS avec pin du certificat</td><td><span class="tag ok">Fait</span></td><td><code>setFingerprint(MQTT_CERT_FINGERPRINT)</code>, buffers TLS 2048/512 ; connexions <code>sentinel-node-01</code> depuis 172.20.10.2 visibles côté broker. Choix du pin SHA1 : fonctionne hors ligne sans NTP.</td></tr>
-  <tr><td>HTTPS 443 (Caddy)</td><td><span class="tag ok">Fait</span></td><td>TLSv1.3 ; HSTS, CSP, X-Frame-Options DENY, nosniff, Referrer-Policy, en-tête Server retiré</td></tr>
-  <tr><td>Authentification dashboard / API</td><td><span class="tag ok">Fait</span></td><td>compte <code>operateur</code> (mot de passe hors git), cookie de session, WebSocket refusé sans session (code 4401)</td></tr>
-  <tr><td>Caméra derrière authentification</td><td><span class="tag ok">Fait</span></td><td><code>GET https://127.0.0.1/cam/health</code> sans session → <b>401</b> (contrôle du 5 octobre 2026)</td></tr>
-  <tr><td>UFW</td><td><span class="tag ok">Actif</span></td><td>deny incoming par défaut ; allow 443, 80 (Apache hôte) ; 8883 depuis 172.20.10.0/28 ; deny 3000 ; 8081 depuis 172.16.0.0/12 puis deny</td></tr>
-  <tr><td>DOCKER-USER</td><td><span class="tag ok">Fait</span></td><td>bloc SENTINEL-X dans <code>/etc/ufw/after.rules</code> + règle iptables immédiate : 8883 abandonné hors sous-réseau de table</td></tr>
-  <tr><td>Conteneurs durcis</td><td><span class="tag part">Partiel</span></td><td>api, ml, proxy : read-only, cap_drop ALL (proxy : NET_BIND_SERVICE seul), api/ml non-root. mosquitto et db : no-new-privileges + limites, mais ni read-only ni cap_drop (entrypoints officiels)</td></tr>
-  <tr><td>SSH par clé uniquement</td><td><span class="tag part">Préparé</span></td><td>openssh-server non installé : aucun port 22 exposé. <code>harden.sh</code> applique la configuration clé ed25519 seule (<code>99-sentinel.conf</code>) si le service est installé.</td></tr>
-  <tr><td>sysctl réseau</td><td><span class="tag ok">Fait</span></td><td><code>/etc/sysctl.d/99-sentinel.conf</code> appliqué</td></tr>
+  <tr><th style="width:28%">Mesure</th><th style="width:13%">État</th><th>Preuve / commentaire</th></tr>
+  <tr><td>MQTTS 8883, port 1883 fermé</td><td><span class="tag ok">Fait</span></td><td>TLS 1.3 négocié, TLS 1.2 accepté (<code>check-demo.sh</code>) ; connexion 1883 refusée ; seul <code>listener 8883</code> dans mosquitto.conf, anonyme refusé</td></tr>
+  <tr><td>ESP en MQTTS avec pin du certificat</td><td><span class="tag ok">Fait</span></td><td><code>setFingerprint(MQTT_CERT_FINGERPRINT)</code> ; connexions <code>sentinel-node-01</code> depuis 172.20.10.2 côté broker. Pin SHA1 : fonctionne hors ligne sans NTP.</td></tr>
+  <tr><td>HTTPS 443 et redirection 80</td><td><span class="tag ok">Fait</span></td><td><code>http://127.0.0.1/</code> → <b>308</b> vers HTTPS (Caddy) ; TLS 1.2/1.3 seulement ; HSTS 1 an, CSP stricte, X-Frame-Options DENY, nosniff, Referrer-Policy no-referrer</td></tr>
+  <tr><td>Authentification, anti brute-force, CSRF</td><td><span class="tag ok">Fait</span></td><td>8 mots de passe faux : 5 × 401 puis 429, même le bon mot de passe reste bloqué depuis l'IP verrouillée, une autre IP passe ; POST avec Origin étranger → 403 (preuves du 6 octobre 2026)</td></tr>
+  <tr><td>Caméra derrière authentification</td><td><span class="tag ok">Fait</span></td><td><code>/cam/snapshot.jpg</code> sans cookie → <b>401</b>, avec cookie → 200 (<code>check-demo.sh</code>, 6 octobre 2026, 11:40)</td></tr>
+  <tr><td>UFW</td><td><span class="tag ok">Verrouillé</span></td><td>deny en entrée et en routage ; 22 en <code>limit</code>, 80, 443, 8883 depuis 172.20.10.0/28 et 192.168.10.0/24 ; refus explicites 3000, 5432, 8081 (hors réseau Docker), 139/445, 137/138</td></tr>
+  <tr><td>DOCKER-USER</td><td><span class="tag ok">Fait</span></td><td>8883 accepté seulement depuis les sous-réseaux de table (IPv4), bloqué en IPv6 ; bloc persistant dans <code>/etc/ufw/after.rules</code></td></tr>
+  <tr><td>Samba, Apache</td><td><span class="tag ok">Arrêtés</span></td><td><code>smbd</code>, <code>nmbd</code>, <code>apache2</code> : inactive et disabled ; le port 80 est repris par Caddy pour la seule redirection</td></tr>
+  <tr><td>Conteneurs tiers healthai-*</td><td><span class="tag ok">Arrêtés</span></td><td>4 conteneurs arrêtés, politique <code>restart=no</code> ; 3002, 3100 et 9090 ne sont plus en écoute</td></tr>
+  <tr><td>Conteneurs durcis</td><td><span class="tag ok">Fait</span></td><td><code>cap_drop ALL</code> sur les 5 conteneurs (ajouts minimaux : mosquitto CHOWN/SETUID/SETGID, db CHOWN/DAC_OVERRIDE/FOWNER/SETUID/SETGID, proxy NET_BIND_SERVICE), <code>no-new-privileges</code> ; api, ml, proxy en <code>read_only</code> ; api/ml non-root. mosquitto et db restent en écriture (entrypoints officiels).</td></tr>
+  <tr><td>SSH par clé uniquement</td><td><span class="tag ok">Fait</span></td><td><code>AuthenticationMethods publickey</code>, <code>PasswordAuthentication no</code>, <code>PermitRootLogin no</code>, <code>MaxAuthTries 3</code> (<code>00-sentinel-hardening.conf</code>)</td></tr>
+  <tr><td>sysctl réseau</td><td><span class="tag ok">Fait</span></td><td><code>rp_filter</code>, source routing et redirections refusés, <code>log_martians</code>, <code>kptr_restrict</code>, <code>dmesg_restrict</code></td></tr>
+  <tr><td>Contrôle des ports</td><td><span class="tag ok">Fait</span></td><td><code>ss -tln</code> (6 octobre 2026, 11:40) : hors loopback, seuls 22, 80, 443 et 8883 (8081 uniquement sur 172.22.0.1). Scan Nmap depuis une autre machine de la table à rejouer jeudi matin.</td></tr>
   <tr><td>Docker rootless / userns-remap</td><td><span class="tag ko">Non fait</span></td><td>recommandation, nécessite de reconfigurer dockerd hors démo</td></tr>
-  <tr><td>fail2ban, nmap de contrôle</td><td><span class="tag ko">Non fait</span></td><td>non installés ; nmap à prévoir pour la vérification avant pentest</td></tr>
+  <tr><td>fail2ban</td><td><span class="tag ko">Non fait</span></td><td>non installé ; compensé par UFW <code>limit</code> sur 22 et le verrouillage applicatif du login</td></tr>
 </table>
 
-<div class="note"><b>À traiter avant jeudi.</b> Docker publie des ports en contournant UFW. Sur l'hôte, d'autres conteneurs hors projet
-publient <span class="mono">3002</span>, <span class="mono">3100</span> et <span class="mono">9090</span> sur 0.0.0.0, et la chaîne DOCKER-USER actuelle les laisse passer.
-Un Nmap adverse les verra. Il faut les filtrer dans DOCKER-USER ou arrêter ces services pendant le pentest. Les ports 139/445 (Samba hôte) sont bloqués par la politique UFW par défaut.</div>
+<h2>Surface exposée et risques résiduels</h2>
+<table>
+  <tr><th style="width:14%">Port</th><th style="width:28%">Service</th><th>Protection</th></tr>
+  <tr><td class="m">22/tcp</td><td>OpenSSH</td><td>clé uniquement, root refusé, UFW <code>limit</code></td></tr>
+  <tr><td class="m">80/tcp</td><td>Caddy (sentinel-proxy)</td><td>redirection 308 vers HTTPS, aucun contenu</td></tr>
+  <tr><td class="m">443/tcp</td><td>Caddy → API</td><td>TLS 1.2/1.3, session + contrôle d'Origin, CSP stricte</td></tr>
+  <tr><td class="m">8883/tcp</td><td>Mosquitto</td><td>TLS, comptes + ACL, accepté seulement depuis le sous-réseau de table ; ESP avec pin du certificat</td></tr>
+</table>
+<ul>
+  <li><b>Certificat auto-signé</b> : les navigateurs ignorent HSTS tant que la CA locale n'est pas importée.</li>
+  <li><b>Accès physique à l'ESP</b> : la flash est lisible ; elle contient les secrets Wi-Fi et MQTT du nœud (compte limité par ACL).</li>
+  <li><b>Verrouillage du login et sessions en mémoire</b> : remis à zéro au redémarrage de l'API.</li>
+  <li><b>Anti-spoofing</b> : modèle 2D passif, il peut être trompé par une attaque de haute qualité (masque 3D, vidéo plein écran sans bord visible, grande impression bien éclairée).</li>
+  <li><b>Docker rootful</b> et <b>DoS radio</b> sur le Wi-Fi : hors de portée des mesures logicielles.</li>
+</ul>
 
 <h2>Extraits de preuves</h2>
-<pre>### openssl s_client MQTTS :8883
-subject=C = FR, O = SENTINEL-X, OU = EPSI-M1, CN = sentinel.local
-issuer=C = FR, O = SENTINEL-X, OU = EPSI-M1, CN = SENTINEL-X Local CA
-New, TLSv1.3, Cipher is TLS_AES_256_GCM_SHA384
+<pre>### infra/hardening/check-demo.sh — 6 octobre 2026, 11:40
+  [OK]   API /health : {"status":"ok","mqtt_connected":true,"database":"ok"}
+  [OK]   login via https://localhost -> 200
+  [OK]   dashboard https://localhost/ (cookie) -> 200
+  [OK]   API /telemetry/latest (cookie) -> 200
+  [OK]   /cam/snapshot.jpg (cookie) -> 200 image/jpeg 53237
+  [OK]   /cam/snapshot.jpg sans cookie -> 401
+  [OK]   MQTT 8883 accepte TLS 1.2
 
-### MQTT anonyme refusé (8883)     OK: anonyme refusé (ou TLS requis)
-### Port 1883 fermé sur l'hôte     OK: 1883 fermé / non joignable
+### Ports en écoute hors loopback (ss -tln)
+0.0.0.0:22   0.0.0.0:80   0.0.0.0:443   0.0.0.0:8883   172.22.0.1:8081
+[::]:22      [::]:80      [::]:443      [::]:8883
 
-### UFW status
+### curl http://127.0.0.1/          http80=308 -> https://127.0.0.1/
+### Port 1883                        connexion refusée
+### healthai-*                       restart=no running=false (×4)
+
+### harden-root.sh — UFW status (6 octobre 2026, 10:24)
 Default: deny (incoming), allow (outgoing), deny (routed)
-443/tcp    ALLOW IN  Anywhere          # SENTINEL HTTPS
-3000/tcp   DENY IN   Anywhere          # SENTINEL api deny
-8883/tcp   ALLOW IN  172.20.10.0/28    # SENTINEL MQTTS hotspot
-8081/tcp   ALLOW IN  172.16.0.0/12     # SENTINEL vision docker
-8081/tcp   DENY IN   Anywhere          # SENTINEL vision deny others</pre>
+22/tcp       LIMIT IN   Anywhere          # SSH cle uniquement (rate-limit)
+80/tcp       ALLOW IN   Anywhere          # SENTINEL redirection HTTP->HTTPS (Caddy)
+443/tcp      ALLOW IN   Anywhere          # SENTINEL HTTPS
+8883/tcp     ALLOW IN   172.20.10.0/28    # SENTINEL MQTTS ESP
+8883/tcp     ALLOW IN   192.168.10.0/24   # SENTINEL MQTTS ESP
+3000/tcp     DENY IN    Anywhere          # SENTINEL API interne
+5432/tcp     DENY IN    Anywhere          # PostgreSQL interne
+139,445/tcp  DENY IN    Anywhere          # Samba interdit</pre>
 <p>Preuve Wireshark à réaliser sur le hotspot pendant la démo : filtre <code>tcp.port==8883</code>, charge utile illisible (TLS).</p>
 
 <!-- ======================= 04 IA ======================= -->
@@ -374,40 +436,162 @@ du rejeu sont à traiter comme « à vérifier ». Réentraîner après plusieur
 <h2>4.2 Vision — YOLOv8n</h2>
 <p>Le service <code>sentinel-vision</code> (systemd utilisateur, <code>vision/vision_service.py</code>) lit la webcam UGREEN par son chemin stable
 <code>/dev/v4l/by-id/…</code>, capture en 1280×720 MJPEG puis redimensionne en <b>782×440</b> avant l'inférence. Ce bridage en amont tient la
-contrainte du sujet (moins de 100 ms par trame). YOLOv8n tourne sur CPU, limité à la classe « personne » avec une confiance minimale de 0,45 ;
-l'inférence est cadencée à 0,12 s au plus (≈ 8 FPS).</p>
+contrainte du sujet (moins de 100 ms par trame en moyenne). YOLOv8n tourne sur CPU, limité à la classe « personne » avec une confiance minimale de 0,45 ;
+l'inférence est cadencée à 0,20 s au plus (<code>SENTINEL_INFER_INTERVAL</code>, ≈ 5 inférences/s).</p>
 <div class="strip">
-  <div class="s"><span class="l">Inférence moyenne (30 trames)</span><span class="v a">49,0 ms</span></div>
-  <div class="s"><span class="l">Dernière trame</span><span class="v">44,8 ms</span></div>
-  <div class="s"><span class="l">Pic ponctuel (≈ 1 h)</span><span class="v">105 ms</span></div>
-  <div class="s"><span class="l">Débit inférence / flux</span><span class="v">20,4 · 9,8</span><span class="l">inf/s · FPS</span></div>
+  <div class="s"><span class="l">Inférence moyenne (30 trames)</span><span class="v a">41,8 ms</span></div>
+  <div class="s"><span class="l">Dernière trame</span><span class="v">34,3 ms</span></div>
+  <div class="s"><span class="l">Pic depuis démarrage (≈ 16 min)</span><span class="v">118 ms</span></div>
+  <div class="s"><span class="l">Capacité / flux</span><span class="v">23,9 · 10,0</span><span class="l">inf/s · FPS</span></div>
   <div class="s"><span class="l">Résolution</span><span class="v">782×440</span></div>
 </div>
-<p class="lead">Relevé sur <code>/health</code> du service vision, 5 octobre 2026 vers 15:00.</p>
+<p class="lead">Relevé sur <code>/health</code> du service vision, 6 octobre 2026 à 11:43. La capacité est l'inverse du temps moyen d'inférence.</p>
 <p>Le temps d'inférence s'affiche en incrustation sur le flux et dans le bloc « Vision IA » du dashboard (<code>infer_ms</code>). Sur
-<code>person_detected</code>, le service publie une alerte (<code>POST /api/v1/alerts</code>, Bearer). Si l'alarme présence est armée, l'API
-déclenche la sirène <code>intrus</code> pendant 15 s. Pendant une alerte gaz, la sirène intrus est inhibée.</p>
+<code>person_detected</code>, le service publie une alerte (<code>POST /api/v1/alerts</code>, Bearer). Quand le portillon d'identification est actif
+(cas nominal), une simple personne ne déclenche plus la sirène : c'est l'issue du portillon qui décide (§4.4). Sans portillon, l'« Alarme présence »
+armée déclenche la sirène <code>intrus</code> pendant 15 s. Pendant une alerte gaz, la sirène intrus est inhibée.</p>
+
+<h2>4.3 Reconnaissance faciale et vivacité</h2>
+<p>La reconnaissance tourne dans le même service, sur CPU, avec les modèles ONNX d'OpenCV (fichiers hors git, téléchargés par
+<code>vision/fetch_face_models.py</code>). C'est une démonstration d'atelier, pas une biométrie de production.</p>
+<table>
+  <tr><th style="width:17%">Étape</th><th style="width:26%">Modèle</th><th>Fonctionnement et paramètres</th><th style="width:16%">Code</th></tr>
+  <tr><td>Détection</td><td>YuNet (<code>face_detection_yunet_2023mar</code>)</td><td><code>cv2.FaceDetectorYN</code>, score ≥ 0,6, NMS 0,3 ; passe visage toutes les 0,30 s</td><td class="m">face_engine.py</td></tr>
+  <tr><td>Empreinte</td><td>SFace (<code>face_recognition_sface_2021dec</code>)</td><td>visage aligné → vecteur d'empreinte</td><td class="m">face_engine.py</td></tr>
+  <tr><td>Identification</td><td>similarité cosinus</td><td>comparaison avec <b>chaque photo enrôlée</b>, la meilleure correspondance l'emporte ; « connu » si similarité ≥ <b>0,363</b> (seuil de référence OpenCV SFace, <code>SENTINEL_FACE_THRESHOLD</code>)</td><td class="m">face_gallery.py</td></tr>
+  <tr><td>Vivacité (anti-photo)</td><td>MiniFASNetV2 (échelle 2,7) + MiniFASNetV1SE (4,0)</td><td>softmax 3 classes [photo, vrai, écran] moyennée ; score vivant = probabilité « vrai visage » ; lissage par piste (moyenne exponentielle α = 0,4, suivi IoU) ; <b>vivant si ≥ 0,60</b> (2 mesures au moins), leurre si ≤ 0,30 (4 mesures) ; visages ≥ 48 px ; ≈ 4,3 ms par visage</td><td class="m">face_liveness.py</td></tr>
+  <tr><td>Verdict</td><td>—</td><td>connu <b>et</b> vivant → « connu » ; connu mais preuve insuffisante → « vérification » ; leurre → traité comme une intrusion</td><td class="m">face_liveness.py</td></tr>
+</table>
+<p>Constats sur site (webcam UGREEN 440p, <code>docs/preuves-securite.txt</code>) : vrais visages entre 0,97 et 1,00 en médiane par piste ;
+visage très proche (&gt; 130 px) : creux ponctuels, moyenne lissée minimale 0,44, d'où le seuil leurre à 0,30 et le seuil vivant à 0,60.
+Échantillons « faux » du jeu d'origine : 0,03 et 0,09 (rejetés).</p>
+<div class="note plain"><b>Limites.</b> Éclairage, angle et ressemblance peuvent tromper SFace. Visage de moins de 48 px : jamais « connu ».
+L'anti-spoofing passif peut être trompé par une attaque de haute qualité (masque 3D, vidéo plein écran, grande impression).</div>
+
+<h2 style="page-break-before: always; margin-top: 0">4.4 Scénario d'identification (portillon)</h2>
+<p class="lead">Machine d'états pure de <code>vision/identity.py</code> (repos → identification → autorisé / intrusion), testée avec une horloge factice ;
+actions côté API dans <code>backend/app/face_gate.py</code> et <code>extras.py</code>.</p>
+<figure class="n78"><img src="file:///home/guiggzz/sentinel-x/docs/assets/schema-identification.png"><figcaption>Fig. 4 — Flux du portillon : vision → API → MQTT cmd → ESP ; vision → Discord si la personne n'est pas identifiée.</figcaption></figure>
+<ol>
+  <li><b>Détection.</b> Une personne (YOLO ou visage) entre dans le champ : la vision publie <code>identify_start</code>. L'API envoie sur
+  <code>sentinel/sentinel-node-01/cmd</code> deux bips courts « identifiez-vous » et la commande <code>display</code> <code>identify</code> :
+  le firmware affiche « ATTENTION / IDENTIFIEZ-VOUS » en plein écran inversé clignotant pendant la fenêtre.</li>
+  <li><b>Fenêtre de 5 s</b> (<code>SENTINEL_IDENTIFY_WINDOW_S</code>). La photo est capturée <b>1 s après la détection</b>
+  (<code>SENTINEL_CAPTURE_DELAY_S</code>), quand la personne est bien cadrée.</li>
+  <li><b>Identifié.</b> Un visage connu et vivant, stable 0,5 s, suffit, même avec un inconnu en arrière-plan : bip court, LED verte 2 s,
+  écran « ACCÈS AUTORISÉ » + nom. La photo est <b>supprimée</b>, rien n'est envoyé.</li>
+  <li><b>Non identifié.</b> Fenêtre expirée alors que la personne est toujours là (inconnu, pas de visage, leurre) : état <code>intrusion</code>
+  (ou <code>intrusion_spoof</code>). La photo part sur le <b>webhook Discord</b> (heure, similarité max, score vivant, caméra ; un envoi
+  toutes les 30 s au plus), l'événement est inscrit au journal (PostgreSQL, dashboard) et l'écran passe en « INTRUS / ALARME ».</li>
+  <li><b>Fin.</b> Plus personne depuis 5 s : retour au repos et à l'écran normal. Une présence continue ne relance pas les bips.</li>
+</ol>
+<table>
+  <tr><th style="width:40%">Interrupteur « Alarme reconnaissance »<br>(onglets Réglages et Visages)</th><th>Armée</th><th>Désarmée</th></tr>
+  <tr><td>Bips « identifiez-vous », écran OLED</td><td>oui</td><td>oui</td></tr>
+  <tr><td>Photo Discord si non identifié</td><td>oui</td><td>oui</td></tr>
+  <tr><td>Événement au journal</td><td>oui</td><td>oui</td></tr>
+  <tr><td>Sirène <code>intrus</code> (15 s) si non identifié</td><td><b>oui</b> (coupée si la personne s'identifie ensuite)</td><td>non</td></tr>
+</table>
+<p>Réglage persistant en base (<code>face_alarm_enabled</code>), synchronisé entre les deux onglets. Pendant une alerte gaz, pas de sirène intrus.
+L'URL du webhook n'est ni versionnée ni journalisée.</p>
+
+<h2>4.5 Enrôlement et badges d'accès</h2>
+<ul>
+  <li><b>Onglet Visages</b> : un nom, puis <b>« Capturer depuis la caméra »</b> (trame brute, une photo par clic, en variant les angles) ou des fichiers.
+  JPEG, PNG ou WebP vérifiés par signature, 5 photos au plus par envoi ; une image jugée non vivante (score &lt; 0,60) est refusée.</li>
+  <li><b>Badge d'accès</b> : carte par personne avec photo d'identité 3:4 et code ID stable ; « Photo badge » la refait depuis la caméra sans toucher aux empreintes.</li>
+  <li><b>Stockage</b> : galerie sur l'hôte (<code>vision/data/gallery/</code>, hors git), atteinte via <code>/api/v1/faces</code> (session) puis Bearer vers la vision.</li>
+</ul>
+
+
+<!-- ======================= 05 AUDIT ======================= -->
+<h1 id="s5"><span class="n">05</span>Rapport d'audit post-pentest (jeudi 08/10)</h1>
+<div class="note"><b>Modèle à compléter le jeudi 8 octobre 2026.</b> Aucun résultat n'est pré-rempli : les tableaux d'attaques restent vides
+jusqu'au pentest croisé. Seules les défenses en place (§5.3) décrivent l'état réel au 6 octobre 2026.</div>
+<table>
+  <tr><th style="width:30%">Champ</th><th>Valeur</th></tr>
+  <tr><td>Date et créneau</td><td>jeudi 8 octobre 2026, après-midi — horaires : <span class="blank"></span></td></tr>
+  <tr><td>Rédacteurs</td><td><span class="blank"></span></td></tr>
+  <tr><td>Groupes adverses</td><td><span class="blank"></span></td></tr>
+  <tr><td>Règles d'engagement (coachs)</td><td><span class="todo">à compléter</span></td></tr>
+</table>
+
+<h2>5.1 Périmètre et cibles</h2>
+<table>
+  <tr><th style="width:24%">Cible défendue</th><th style="width:20%">Adresse</th><th style="width:24%">Ports / services</th><th>Remarque</th></tr>
+  <tr><td>PC serveur (Option B)</td><td class="m">172.20.10.4</td><td class="m">22, 80, 443, 8883</td><td>stack Docker + vision ; le reste est filtré</td></tr>
+  <tr><td>Nœud ESP8266</td><td class="m">172.20.10.2</td><td class="m">client MQTTS sortant</td><td>OTA Wi-Fi protégée par mot de passe si le firmware OTA est flashé (à vérifier le jour J)</td></tr>
+  <tr><td>Réseau de table</td><td class="m">172.20.10.0/28</td><td class="m">hotspot « Guiggzz »</td><td>accès Wi-Fi des attaquants : <span class="todo">à compléter</span></td></tr>
+</table>
+<table class="rows">
+  <tr><th style="width:24%">Cible attaquée (groupe)</th><th style="width:20%">Adresse</th><th style="width:24%">Ports découverts</th><th>Remarque</th></tr>
+  <tr><td></td><td></td><td></td><td></td></tr>
+  <tr><td></td><td></td><td></td><td></td></tr>
+  <tr><td></td><td></td><td></td><td></td></tr>
+</table>
+
+<h2>5.2 Outils</h2>
+<table>
+  <tr><th style="width:18%">Outil</th><th>Usage prévu</th><th style="width:22%">Utilisé (cible, heure)</th></tr>
+  <tr><td>Nmap</td><td>découverte d'hôtes et de ports, versions de services (<code>-sT -sV</code>), contrôle de notre propre surface</td><td></td></tr>
+  <tr><td>Wireshark</td><td>capture sur le hotspot : vérifier que MQTT et HTTP sont chiffrés, repérer les flux en clair chez les cibles</td><td></td></tr>
+  <tr><td>Metasploit</td><td>modules auxiliaires de scan et de brute force sur les services exposés</td><td></td></tr>
+  <tr><td>openssl, curl, client MQTT</td><td>versions TLS, en-têtes HTTP, tentatives de connexion MQTT anonymes</td><td></td></tr>
+</table>
+
+<h2>5.3 Défenses en place au début du pentest</h2>
+<ul>
+  <li>Surface : 22 (SSH par clé, <code>limit</code>), 80 (redirection 308), 443 (HTTPS), 8883 (MQTTS depuis le sous-réseau de table) ; UFW deny par défaut, DOCKER-USER, Samba / Apache / healthai-* arrêtés.</li>
+  <li>MQTT : TLS seul, anonyme refusé, ACL par utilisateur, pin du certificat côté ESP, limites de connexions et de messages.</li>
+  <li>Web : session HttpOnly/Secure/SameSite=Strict, verrouillage du login (5 échecs / 15 min), contrôle d'Origin (CSRF), CSP stricte, <code>/docs</code> désactivé, entrées validées.</li>
+  <li>Caméra : flux uniquement via <code>/cam/*</code> authentifié ; portillon d'identification avec anti-spoofing.</li>
+  <li>Conteneurs : <code>cap_drop ALL</code>, <code>no-new-privileges</code>, <code>read_only</code> (api, ml, proxy), limites de ressources.</li>
+  <li>Détection : journal sécurité de l'API (<code>LOGIN_FAIL</code>, <code>LOGIN_LOCKOUT</code>, <code>CSRF_BLOCK</code>), connexions refusées de Mosquitto, <code>ss -tnp</code>, journal UFW.</li>
+</ul>
+
+<h2>5.4 Attaques subies</h2>
+<p class="lead">Une ligne par tentative observée. Résultat : bloquée / partielle / réussie. Détection : source et heure.</p>
+<table class="rows">
+  <tr><th style="width:4%">#</th><th style="width:8%">Heure</th><th style="width:18%">Vecteur</th><th style="width:12%">Outil</th><th style="width:16%">Résultat</th><th style="width:18%">Détection</th><th>Correctif</th></tr>
+  <tr><td class="m">1</td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td class="m">2</td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td class="m">3</td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td class="m">4</td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td class="m">5</td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td class="m">6</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+</table>
+
+<h2>5.5 Attaques menées</h2>
+<table class="rows">
+  <tr><th style="width:4%">#</th><th style="width:8%">Heure</th><th style="width:14%">Cible</th><th style="width:16%">Vecteur</th><th style="width:12%">Outil</th><th style="width:16%">Résultat</th><th>Preuve / recommandation</th></tr>
+  <tr><td class="m">1</td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td class="m">2</td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td class="m">3</td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td class="m">4</td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td class="m">5</td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td class="m">6</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+</table>
+
+<h2>5.6 Conclusions</h2>
+<div class="cols">
+  <div><h3>Bilan défensif</h3><div class="fill tall">à compléter</div></div>
+  <div><h3>Bilan offensif</h3><div class="fill tall">à compléter</div></div>
+</div>
+<div class="cols">
+  <div><h3>Correctifs appliqués après le pentest</h3><div class="fill">à compléter</div></div>
+  <div><h3>Actions restantes</h3><div class="fill">à compléter</div></div>
+</div>
 
 <!-- ======================= ANNEXE A3 ======================= -->
 <section class="poster" id="a3">
   <div class="ph">
-    <div><div class="t">SENTINEL<span>-X</span></div><div class="sub">Nœud IoT · stack Docker · MQTTS/HTTPS · Isolation Forest · YOLOv8n</div></div>
+    <div><div class="t">SENTINEL<span>-X</span></div><div class="sub">Nœud IoT · stack Docker · MQTTS/HTTPS · Isolation Forest · YOLOv8n · reconnaissance faciale</div></div>
     <div class="r">Annexe A3 · Workshop EPSI Bac+4 · octobre 2026<br>Option B — PC apprenant = serveur<br>Workshop2026-M1-G__</div>
   </div>
   <div class="kpi">
     <div class="s"><span class="l">Rappel spray butane</span><span class="v a">20/20</span><span class="d">alarme en 8 s (médiane)</span></div>
     <div class="s"><span class="l">Avance sur règle statique</span><span class="v">11–52 min</span><span class="d">4/4 dérives lentes</span></div>
     <div class="s"><span class="l">Faux incidents</span><span class="v">0</span><span class="d">holdout normal 0,11 h</span></div>
-    <div class="s"><span class="l">Inférence YOLOv8n</span><span class="v">49 ms</span><span class="d">CPU · 782×440 · &lt; 100 ms</span></div>
-    <div class="s"><span class="l">Flux chiffrés</span><span class="v">TLS 1.3</span><span class="d">MQTTS 8883 · HTTPS 443</span></div>
-    <div class="s"><span class="l">Ports SENTINEL exposés</span><span class="v">2</span><span class="d">443 · 8883 (sous-réseau de table)</span></div>
+    <div class="s"><span class="l">Inférence YOLOv8n</span><span class="v">42 ms</span><span class="d">CPU · 782×440 · moyenne &lt; 100 ms</span></div>
+    <div class="s"><span class="l">Identification</span><span class="v">5 s</span><span class="d">SFace 0,363 · vivant ≥ 0,60</span></div>
+    <div class="s"><span class="l">Ports exposés</span><span class="v">4</span><span class="d">22 clé · 80→443 · 443 · 8883</span></div>
   </div>
   <div class="grid">
     <div style="width:42%">
       <h4>Architecture</h4>
       <img src="file:///home/guiggzz/sentinel-x/docs/assets/schema-reseau.png">
       <p style="margin-top:3mm">ESP8266 → MQTTS → Mosquitto → API FastAPI → PostgreSQL / WebSocket → dashboard HTTPS. Le service IA s'abonne à la
-      télémétrie et pilote la sirène. La vision YOLO tourne sur le PC, à côté de la webcam.</p>
+      télémétrie et pilote la sirène. La vision tourne sur le PC, à côté de la webcam : YOLO, portillon d'identification, alerte Discord.</p>
     </div>
     <div style="width:29%">
       <h4>Nœud de table</h4>
@@ -420,10 +604,10 @@ déclenche la sirène <code>intrus</code> pendant 15 s. Pendant une alerte gaz, 
       </table>
       <h4 style="margin-top:4mm">Sécurité</h4>
       <ul>
-        <li>MQTTS + pin du certificat, ACL par rôle, anonyme refusé</li>
-        <li>HTTPS Caddy, session HttpOnly, rate-limit, caméra authentifiée</li>
-        <li>UFW deny par défaut + DOCKER-USER</li>
-        <li>Conteneurs read-only, cap_drop ALL, limites</li>
+        <li>MQTTS + pin du certificat, ACL par utilisateur, anonyme refusé</li>
+        <li>HTTPS Caddy, session HttpOnly, anti brute-force, CSRF, CSP stricte</li>
+        <li>UFW verrouillé + DOCKER-USER, SSH par clé, Samba/Apache arrêtés</li>
+        <li>Conteneurs cap_drop ALL, read-only, caméra authentifiée</li>
       </ul>
     </div>
     <div style="width:29%">
@@ -435,15 +619,16 @@ déclenche la sirène <code>intrus</code> pendant 15 s. Pendant une alerte gaz, 
         <tr><td class="m">prediction</td><td>pré-alerte silencieuse</td></tr>
         <tr><td class="m">gaz_fumee</td><td>sirène gaz + LED rouge</td></tr>
         <tr><td class="m">thermique</td><td>LED rouge + bandeau</td></tr>
-        <tr><td class="m">intrusion</td><td>sirène intrus 15 s (si armée)</td></tr>
+        <tr><td class="m">identification</td><td>bips + OLED, 5 s pour s'identifier</td></tr>
+        <tr><td class="m">intrusion</td><td>Discord + journal ; sirène si armée</td></tr>
       </table>
     </div>
   </div>
   <div class="chain">
     <div><b>01 · CAPTER</b>DHT22, MQ-2, PIR, OLED d'état ; webcam USB sur le PC serveur</div>
-    <div><b>02 · TRANSPORTER</b>MQTTS 8883, pin du certificat, comptes et ACL par rôle</div>
-    <div><b>03 · ANALYSER</b>Isolation Forest sur 8 dynamiques capteurs ; YOLOv8n ≈ 49 ms par trame</div>
-    <div><b>04 · ALERTER</b>sirène gaz / intrus, LED, dashboard HTTPS temps réel, journal PostgreSQL</div>
+    <div><b>02 · TRANSPORTER</b>MQTTS 8883, pin du certificat, comptes et ACL par utilisateur</div>
+    <div><b>03 · ANALYSER</b>Isolation Forest ; YOLOv8n ≈ 42 ms ; YuNet + SFace, vivacité MiniFASNet</div>
+    <div><b>04 · ALERTER</b>sirène gaz / intrus, OLED, Discord, dashboard HTTPS temps réel, journal PostgreSQL</div>
   </div>
 </section>
 </body></html>

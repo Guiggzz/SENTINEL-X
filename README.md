@@ -1,25 +1,52 @@
 # SENTINEL-X — AetherCorp
 
-Projet IoT atelier EPSI : nœud ESP8266 (firmware), broker MQTT, API FastAPI, PostgreSQL et tableau de bord web temps réel.
+Projet IoT atelier EPSI : nœud ESP8266 (firmware), broker MQTT, API FastAPI, PostgreSQL, tableau de bord web temps réel,
+IA prédictive (Isolation Forest) et vision (YOLOv8n, reconnaissance faciale avec anti-spoofing, portillon d'identification).
+
+**Dépôt (livrable code) :** <https://github.com/Guiggzz/SENTINEL-X>
+
+## Livrables (`Workshop2026-M1-G<n>`)
+
+| Livrable | Emplacement |
+|---|---|
+| Rapport d'ingénierie (schéma réseau, câblage, matrice de sécurité, IA, rapport d'audit post-pentest, poster A3) | `docs/Workshop2026-M1-G-Dossier.pdf` — source `docs/assets/build/build_pdf.py` |
+| Support de soutenance | `docs/Workshop2026-M1-G-Pres.pptx` — source `docs/assets/build/build_pptx.py` |
+| Vidéo « Sentinel Drop » | `Workshop2026-M1-G<n>-VidDrop.mp4` (hors dépôt) |
+| Code | ce dépôt GitHub : <https://github.com/Guiggzz/SENTINEL-X> |
+
+Régénérer les documents (le numéro de groupe n'est ajouté au nom que si `SENTINEL_GROUP` est défini) :
+
+```bash
+python3 docs/assets/build/build_pdf.py            # -> docs/Workshop2026-M1-G-Dossier.pdf
+SENTINEL_GROUP=7 python3 docs/assets/build/build_pdf.py   # -> Workshop2026-M1-G7-Dossier.pdf
+```
+
+### Secrets jamais versionnés
+
+Aucun secret n'est commité : `firmware/sentinel_node/secrets.h`, `firmware/.ota_password`, `infra/.env`,
+`infra/OPERATOR_PASSWORD.txt`, `infra/mosquitto/config/passwd` et `infra/mosquitto/secrets/`, clés privées TLS
+(`*.key`, `*.pem`) sont exclus par `.gitignore`. L'URL du webhook Discord vit dans `~/.config/sentinel/vision.env`
+(hors dépôt, droits 600). Partir de `firmware/sentinel_node/secrets.example.h` et `infra/.env.example`.
 
 ## Architecture
 
 **Option technique B — Topologie distribuée « Edge-to-Server » (PC apprenant)** : le PC portable joue le rôle de *PCServeur Local* (broker MQTTS, API, PostgreSQL, proxy HTTPS, ML, vision). Le nœud ESP8266 reste en *edge* (capteurs + actionneurs) et dialogue uniquement via MQTT(S).
 
 ```
-ESP8266  --MQTT-->  Mosquitto  -->  API FastAPI  -->  PostgreSQL
-                         ^              |
-                         |              +--> WebSocket / Dashboard
-                         +-- commandes (/cmd)
+ESP8266  --MQTTS-->  Mosquitto  -->  API FastAPI  -->  PostgreSQL
+                         ^              |   ^
+                         |              |   +-- POST /api/v1/alerts (Bearer) -- vision (webcam, YOLO, visages)
+                         |              +--> WebSocket / Dashboard (HTTPS via Caddy)      |
+                         +-- commandes (/cmd : bips, sirène, LED, écran OLED)             +--> Discord (webhook, non identifié)
 ```
 
 | Conteneur            | Rôle                          | Ports hôte      |
 |----------------------|-------------------------------|-----------------|
-| `sentinel-mosquitto` | Broker MQTT / MQTTS           | `8883` (+ `1883` temporaire) |
+| `sentinel-mosquitto` | Broker MQTTS (TLS seul)       | `8883` |
 | `sentinel-db`        | PostgreSQL 16 (volume nommé)  | *aucun* (réseau Docker uniquement) |
 | `sentinel-api`       | FastAPI + dashboard           | `127.0.0.1:3000` |
 | `sentinel-ml`        | Maintenance prédictive (Isolation Forest) | *aucun* |
-| `sentinel-proxy`     | Caddy HTTPS                   | `443` |
+| `sentinel-proxy`     | Caddy HTTPS                   | `443` (+ `80` → redirection 308 vers HTTPS) |
 
 Le PostgreSQL local de l’hôte (`127.0.0.1:5432`) n’est pas utilisé ; le conteneur DB n’expose pas de port hôte.
 
@@ -119,25 +146,27 @@ Les volumes `mosquitto-data` et `sentinel-pgdata` sont conservés.
 
 Interface française type centre de commande (AetherCorp / SENTINEL-X) :
 
-- graphiques température / humidité / gaz (~5 min) ;
-- cartes statut (nœud, présence, buzzer, LEDs, RSSI) ;
-- journal d’événements ;
-- boutons de commande ;
-- panneau **Flux caméra IA** (MJPEG YOLO depuis le service vision, défaut `:8081/stream.mjpg`).
+- onglet **Supervision** : cartes statut (nœud, présence, buzzer, LEDs, RSSI), graphiques température / humidité / gaz (~5 min), IA, vision, aperçu caméra, MCO hôte ;
+- onglet **Caméra** : flux du service vision servi par l'API sur `/cam/*` (session obligatoire) ;
+- onglet **Journal** : journal d’événements (alertes, statut du nœud, commandes) ;
+- onglet **Visages** : interrupteur **Alarme reconnaissance**, enrôlement (bouton « Capturer depuis la caméra » ou fichiers), badges d'accès, état du portillon ;
+- onglet **Réglages** : armement (**Alarme présence**, **Alarme reconnaissance**) et commandes du nœud.
 
 
 
 ## Service vision (webcam + YOLO)
 
-Détection de personnes sur la webcam du PC (`BisonCam` / `/dev/video0`) avec **YOLOv8n** (CPU), flux MJPEG pour le dashboard.
+Détection de personnes sur la webcam USB du PC (UGREEN, voir « Caméra utilisée ») avec **YOLOv8n** (CPU), flux MJPEG pour le dashboard,
+reconnaissance faciale et portillon d'identification (voir « Visages »).
 
 | Endpoint | Description |
 |----------|-------------|
-| `http://localhost:8081/stream.mjpg` | Flux MJPEG annoté |
-| `http://localhost:8081/snapshot.jpg` | Instantané JPEG |
-| `http://localhost:8081/health` | JSON (`camera_ok`, `fps`, `persons`, …) |
+| `http://172.22.0.1:8081/stream.mjpg` | Flux MJPEG annoté |
+| `http://172.22.0.1:8081/snapshot.jpg` | Instantané JPEG |
+| `http://172.22.0.1:8081/health` | JSON (`camera_ok`, `fps`, `infer_ms`, `persons`, `face_*`, `identity`, …) |
 
-Aussi accessible en LAN : `http://172.20.10.4:8081/…`.
+Le service écoute sur `172.22.0.1:8081` (passerelle du réseau Docker `sentinel-front`, `SENTINEL_VISION_HOST`) :
+seul le conteneur API le joint, pas le Wi-Fi. Côté navigateur, tout passe par `https://<hôte>/cam/*` (cookie de session).
 
 ### systemd --user
 
@@ -349,18 +378,34 @@ L'OLED affiche `!! ALERTE GAZ !!` / `!! INTRUSION !!`. Motifs dans `firmware/sen
 
 ## Visages (démo d'atelier)
 
-Reconnaissance **YuNet + SFace** (OpenCV, CPU) dans le service vision. Ce n'est pas une biométrie
-de production : éclairage, angle et ressemblance peuvent se tromper.
+Reconnaissance **YuNet + SFace** (OpenCV, CPU) et anti-spoofing **MiniFASNet** dans le service vision.
+Ce n'est pas une biométrie de production : éclairage, angle et ressemblance peuvent se tromper.
 
-| Réglage | Effet |
-|---|---|
-| Alarme visage inconnu **désarmée** (défaut) | La caméra se comporte comme avant : `person_detected` peut sonner si l'alarme présence est armée. |
-| Alarme visage inconnu **armée** et modèles chargés | Visage **connu** : pas de sirène. Visage **inconnu** : même sirène `intrus` que la présence (LED rouge en mode auto). L'alarme personne YOLO de la caméra est alors suspendue. Le PIR n'est pas modifié. |
-| Aucun visage dans l'image | Pas d'alarme visage (`Aucun visage` au tableau de bord). |
+| Étape | Modèle / règle | Code |
+|---|---|---|
+| Détection | YuNet (`face_detection_yunet_2023mar.onnx`), passe visage toutes les 0,30 s | `vision/face_engine.py` |
+| Empreinte + identification | SFace (`face_recognition_sface_2021dec.onnx`), cosinus contre **chaque photo enrôlée**, meilleure correspondance ; « connu » si ≥ **0,363** (`SENTINEL_FACE_THRESHOLD`) | `vision/face_gallery.py` |
+| Vivacité (photo / écran) | MiniFASNetV2 + MiniFASNetV1SE, score « vrai visage » lissé par piste ; **vivant ≥ 0,60**, leurre ≤ 0,30 (`SENTINEL_LIVENESS_*`) | `vision/face_liveness.py` |
+| Verdict | connu **et** vivant → connu ; leurre → intrusion ; preuve insuffisante → « vérification » | `vision/face_liveness.py` |
 
-Seuil : similarité **cosinus**, défaut **0,363** (référence OpenCV SFace). Plus haut = plus strict
-(moins de faux « connus »). Variable `SENTINEL_FACE_THRESHOLD`. Débounce avant sirène :
-`SENTINEL_FACE_DEBOUNCE` (défaut 1,5 s).
+### Portillon d'identification (`vision/identity.py`)
+
+1. Une personne est détectée (YOLO ou visage) → l'API envoie sur MQTT deux bips « identifiez-vous » et la commande
+   `{"action":"display","mode":"identify"}` : le firmware affiche **ATTENTION / IDENTIFIEZ-VOUS** sur l'OLED.
+2. Fenêtre de **5 s** (`SENTINEL_IDENTIFY_WINDOW_S`). Une photo est prise **1 s** après la détection (`SENTINEL_CAPTURE_DELAY_S`).
+3. Visage connu et vivant stable 0,5 s → autorisé (bip court, LED verte, OLED « ACCÈS AUTORISÉ » + nom) ; la photo est jetée.
+4. Fenêtre expirée, personne toujours là → `intrusion` (ou `intrusion_spoof`) : la photo part sur le **webhook Discord**
+   (`DISCORD_WEBHOOK_URL` dans `vision.env`, jamais affichée ; une alerte / 30 s max), l'événement est journalisé
+   (PostgreSQL + dashboard) et l'OLED affiche « INTRUS / ALARME ».
+5. Plus personne depuis 5 s → retour au repos.
+
+| « Alarme reconnaissance » | Bips + OLED | Discord | Journal | Sirène `intrus` |
+|---|---|---|---|---|
+| armée | oui | oui | oui | **oui** (15 s, coupée si la personne s'identifie) |
+| désarmée (défaut) | oui | oui | oui | non |
+
+Tant que le portillon est actif (`SENTINEL_IDENTIFY=1`, défaut), une simple personne YOLO ne déclenche plus la sirène :
+c'est l'issue du portillon qui décide. Pendant une alerte gaz, pas de sirène intrus.
 
 ### Activer
 
@@ -378,15 +423,18 @@ ce jeton dès qu'il est défini (`SENTINEL_API_TOKEN` ou `API_TOKEN` dans `visio
 
 ### Enrôler
 
-Onglet **Visages** du dashboard : nom, une ou plusieurs photos de face, bouton Enrôler.
+Onglet **Visages** du dashboard : un nom, puis **« Capturer depuis la caméra »** (une photo par clic, en variant
+les angles) ou des fichiers (JPEG/PNG/WebP, 5 max par envoi). Une image jugée non vivante (< 0,60) est refusée.
 Le même nom ajoute des photos à la personne déjà enrôlée. Retirer supprime la fiche.
-Le bandeau caméra et l'onglet affichent **Connu · nom**, **Inconnu** ou **Aucun visage**.
+Chaque personne a un **badge d'accès** (photo d'identité 3:4, code ID stable) ; « Photo badge » la refait depuis la caméra
+sans modifier les empreintes. Le bandeau caméra et l'onglet affichent l'état du portillon et **Connu · nom**, **Inconnu**,
+**Leurre** ou **Aucun visage**.
 
 ### Tester sans caméra
 
 ```bash
-cd vision && python3 -m unittest test_face_gallery.py test_face_api.py
-cd ../backend && python3 -m unittest test_face_gate.py
+cd vision && python3 -m unittest test_face_gallery.py test_face_api.py test_face_liveness.py test_identity.py test_discord_alert.py test_face_portrait.py
+cd ../backend && python3 -m unittest test_face_gate.py test_security.py
 ```
 
 ## Nouveaux endpoints / dashboard
@@ -395,7 +443,7 @@ cd ../backend && python3 -m unittest test_face_gate.py
 |---|---|---|
 | `GET` | `/api/v1/ai` | dernier état IA par équipement + historique du risque (15 min) |
 | `GET/PUT` | `/api/v1/settings/person-alarm` | armement de l'alarme présence |
-| `GET/PUT` | `/api/v1/settings/face-alarm` | alarme visage inconnu (désarmée par défaut) |
+| `GET/PUT` | `/api/v1/settings/face-alarm` | « Alarme reconnaissance » : sirène du portillon si non identifié (désarmée par défaut) |
 | `GET/POST` | `/api/v1/faces` | liste / enrôlement (multipart `name` + `photo`) |
 | `DELETE` | `/api/v1/faces/{id}` | retire une personne |
 | `GET` | `/api/v1/faces/status` | connu / inconnu / aucun visage |
@@ -412,17 +460,17 @@ Le service vision expose `infer_ms`, `infer_ms_max`, `infer_frame` dans `/health
 | Service | Variables |
 |---|---|
 | `sentinel-ml` | `MQTT_HOST`, `MQTT_PORT`, `MQTT_USERNAME`, `MQTT_PASSWORD` (compose : `MQTT_USERNAME_ML` / `MQTT_PASSWORD_ML`), `MQTT_TLS`, `MQTT_CA_FILE`, `MQTT_TELEMETRY_TOPIC`, `DATABASE_URL`, `ML_ACTUATOR_DEVICE`, `ML_TRAIN_DEVICE`, `ML_GAS_BUZZER_MS`, `ML_REARM_S`, `ML_CONTAMINATION`, `ML_AI_TOPIC`, `ML_ALERTS_TOPIC`, `ML_STATUS_TOPIC` |
-| vision | `SENTINEL_API_ALERTS` (ou `API_BASE_URL`), `SENTINEL_API_TOKEN` (ou `API_TOKEN`) → en-tête `Authorization: Bearer` ; `SENTINEL_FACE_THRESHOLD` (0,363), `SENTINEL_FACE_DEBOUNCE` (1,5), `SENTINEL_FACE_DIR`, `SENTINEL_FACE_MODEL_DIR` |
+| vision | `SENTINEL_API_ALERTS` (ou `API_BASE_URL`), `SENTINEL_API_TOKEN` (ou `API_TOKEN`) → en-tête `Authorization: Bearer` ; `SENTINEL_FACE_THRESHOLD` (0,363), `SENTINEL_FACE_DEBOUNCE` (1,5), `SENTINEL_FACE_DIR`, `SENTINEL_FACE_MODEL_DIR`, `SENTINEL_VISION_HOST` (172.22.0.1), `SENTINEL_IDENTIFY` (1), `SENTINEL_IDENTIFY_WINDOW_S` (5), `SENTINEL_CAPTURE_DELAY_S` (1), `SENTINEL_LIVENESS_LIVE` (0,60), `SENTINEL_LIVENESS_SPOOF` (0,30), `DISCORD_WEBHOOK_URL` (secret, `vision.env`), `DISCORD_COOLDOWN_S` (30) |
 | API | `PERSON_ALARM_DURATION_MS` (défaut 15000) |
 
 
 ## Sécurité
 
 ### URLs
-- Dashboard HTTPS : `https://localhost/` et `https://172.20.10.4/` (port **443** ; le port 80 de l'hôte est déjà pris par Apache — pas de redirect HTTP SENTINEL)
-- MQTTS : `172.20.10.4:8883` (TLS)
-- MQTT plain `1883` : **temporaire** (hotspot only, ESP non flashé) — à fermer après flash MQTTS
-- Caméra : `/cam/stream.mjpg` (même origine HTTPS)
+- Dashboard HTTPS : `https://localhost/` et `https://172.20.10.4/` (port **443** ; `http://` → redirection **308** vers HTTPS par Caddy)
+- MQTTS : `172.20.10.4:8883` (TLS seul, 1883 fermé ; UFW + DOCKER-USER : sous-réseaux de table uniquement)
+- Caméra : `/cam/stream.mjpg` et `/cam/snapshot.jpg` (même origine HTTPS, 401 sans session)
+- Ports exposés par l'hôte : **22** (SSH par clé), **80** (redirection), **443**, **8883** — tout le reste est refusé
 
 ### Import CA (navigateur)
 Certificat signé par la CA locale `infra/certs/ca.crt`.
@@ -467,9 +515,14 @@ bash ~/sentinel-x/infra/hardening/verify.sh | tee ~/sentinel-x/docs/preuves-secu
 
 ### Durcissement hôte
 ```bash
-pkexec bash ~/sentinel-x/infra/hardening/harden.sh
-# log : infra/hardening/harden.log
+sudo bash ~/sentinel-x/infra/harden-root.sh      # Samba/Apache off, :80 -> Caddy 308, UFW, DOCKER-USER, sshd clé seule, sysctl
+# log : infra/hardening/harden-root.log (idempotent, ne touche pas aux conteneurs tiers)
+bash ~/sentinel-x/infra/hardening/check-demo.sh  # non-régression démo, lecture seule, n'affiche aucun secret
 ```
+Ancien script : `pkexec bash infra/hardening/harden.sh` (log `infra/hardening/harden.log`).
+Défense applicative : verrouillage du login (5 échecs / 15 min par IP), cookie HttpOnly/Secure/SameSite=Strict révoqué
+au logout, contrôle d'Origin (CSRF) et anti-CSWSH, CSP stricte, `/docs` désactivé, conteneurs `cap_drop ALL` /
+`no-new-privileges` / `read_only` (api, ml, proxy). Matrice : `docs/matrice-securite.md` ; preuves : `docs/preuves-securite.txt`.
 
 ### Flash ESP MQTTS (quand /dev/ttyUSB0 présent)
 ```bash
@@ -477,8 +530,8 @@ pkexec bash ~/sentinel-x/infra/hardening/harden.sh
 export PATH=$HOME/.local/bin:$PATH
 cd ~/sentinel-x/firmware
 # créer .firmware.lock, compiler, flasher, retirer lock
-# Puis retirer le listener 1883 de mosquitto + port publié
 ```
+Détails (USB et OTA Wi-Fi protégée par mot de passe) : `firmware/README.md`.
 
 ### Choix TLS ESP
 Pin du certificat serveur (**SHA1 fingerprint** via BearSSL `setFingerprint` / `MQTT_CERT_FINGERPRINT`) — robuste hors-ligne sans NTP (préféré à `setKnownKey` sur ESP8266).
@@ -496,10 +549,13 @@ Pin du certificat serveur (**SHA1 fingerprint** via BearSSL `setFingerprint` / `
    - Variables d'environnement : copier `infra/.env.example` → `infra/.env` (jamais committer `.env`).
 6. **IA** : panneau risque sur le dashboard ; rejouer / entraîner via `docker compose run --rm --no-deps ml python train.py`.
 7. **Scénario gaz** : spray butane contrôlé → incident `gaz_fumee` + sirène ; « Couper alarme » pour acquitter.
-8. **Visages** : `python3 vision/fetch_face_models.py`, redémarrer `sentinel-vision`, onglet Visages, enrôler une photo, armer « Alarme visage inconnu ». Connu : pas de sirène. Inconnu : sirène intrus.
-9. **Preuves sécu** : `bash infra/hardening/verify.sh` ; SSH clé-only (voir `docs/preuves-securite.txt`).
+8. **Visages** : `python3 vision/fetch_face_models.py`, redémarrer `sentinel-vision`, onglet Visages, « Capturer depuis la caméra ».
+   Entrer dans le champ : bips + OLED « IDENTIFIEZ-VOUS », 5 s pour s'identifier. Connu : accès autorisé. Inconnu ou photo :
+   Discord + journal, et sirène intrus si « Alarme reconnaissance » est armée.
+9. **Preuves sécu** : `bash infra/hardening/check-demo.sh`, `bash infra/hardening/verify.sh` (voir `docs/preuves-securite.txt`).
 
-Ports utiles : **443** (HTTPS), **8883** (MQTTS, idéalement LAN/hotspot), **8081** (vision, restreint UFW), API bind `127.0.0.1:3000` (pas exposée).
+Ports exposés : **22** (SSH clé), **80** (→ HTTPS), **443** (HTTPS), **8883** (MQTTS, sous-réseau de table). Vision sur `172.22.0.1:8081`
+(réseau Docker uniquement), API sur `127.0.0.1:3000` (pas exposée).
 
 
 ## Structure
@@ -510,11 +566,12 @@ sentinel-x/
 ├── backend/           # FastAPI + static dashboard
 ├── ml/                # Isolation Forest (train.py, service.py, models/, evaluation.md)
 ├── infra/             # docker-compose, mosquitto, certs, .env
-├── vision/            # Webcam + YOLO (MJPEG :8081) + galerie YuNet/SFace
+├── vision/            # Webcam + YOLO (MJPEG :8081) + YuNet/SFace, MiniFASNet, portillon, Discord
+├── docs/              # sujet, dossier PDF + sources (assets/build), matrice et preuves sécurité, checklist pentest
 └── README.md
 ```
 
-**Ne jamais committer** `infra/.env` ni `firmware/sentinel_node/secrets.h`.
+**Ne jamais committer** `infra/.env`, `firmware/sentinel_node/secrets.h` ni aucun fichier listé dans « Secrets jamais versionnés ».
 
 ### Caméra utilisée
 Le service lit la webcam **UGREEN** via son chemin stable

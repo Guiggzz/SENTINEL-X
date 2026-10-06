@@ -52,47 +52,81 @@ def arrow(ax, p1, p2, label=None, accent=False, both=False, lpos=0.5, loff=(0, 1
 def network():
     fig, ax = canvas(11.0, 6.4, 100, 60)
     ax.add_patch(Rectangle((1, 1), 98, 58, fill=False, edgecolor=RULE_S, linewidth=0.8, linestyle=(0, (4, 3))))
-    ax.text(2.2, 57.2, "RÉSEAU DE TABLE  ·  hotspot iPhone  ·  172.20.10.0/28 (actuel)",
+    ax.text(2.2, 57.2, "RÉSEAU DE TABLE  ·  hotspot iPhone « Guiggzz »  ·  172.20.10.0/28 (isolé, PC seul serveur)",
             fontsize=7.4, color=MUTED, family=MONO, va="center")
 
     box(ax, 4, 38, 18, 12, "ESP8266 NodeMCU v3", "sentinel-node-01\n172.20.10.2 (DHCP)")
-    box(ax, 4, 10, 18, 11, "Poste opérateur / jury", "navigateur\nCA locale importée")
+    box(ax, 4, 22, 18, 10, "Poste opérateur / jury", "navigateur\nCA locale importée")
     box(ax, 28, 24, 14, 12, "Hotspot iPhone", "passerelle .1\n/28 · 14 hôtes", fill=SURF)
+    box(ax, 4, 6, 18, 9, "Discord (Internet)", "webhook HTTPS\nURL hors dépôt", dashed=True)
 
     ax.add_patch(Rectangle((47, 3.5), 50.5, 51.5, facecolor=BG, edgecolor=INK, linewidth=1.0, zorder=1))
     ax.text(48.4, 52.8, "PC serveur — Option B  ·  172.20.10.4  ·  Ubuntu", fontsize=8.6, weight="semibold", color=INK)
     ax.add_patch(Rectangle((48.5, 5), 3.6, 44.5, facecolor=SURF, edgecolor=RULE_S, linewidth=0.8, zorder=2))
-    ax.text(50.3, 15.5, "UFW deny-in\nDOCKER-USER", rotation=90, ha="center", va="center", fontsize=6.4,
-            family=MONO, color=INK, zorder=3, linespacing=1.2)
+    ax.text(50.3, 27, "UFW deny-in · DOCKER-USER · ouverts : 22 clé · 80→443 · 443 · 8883", rotation=90,
+            ha="center", va="center", fontsize=6.0, family=MONO, color=INK, zorder=3)
 
     ax.add_patch(Rectangle((54.5, 20.5), 41.5, 30, facecolor=BG, edgecolor=RULE_S, linewidth=0.8, zorder=1.5))
     ax.text(55.5, 48.6, "Docker Compose  ·  réseaux sentinel-front / sentinel-back (internal)", fontsize=6.6,
             family=MONO, color=MUTED, va="center")
 
-    box(ax, 56.5, 38, 12, 8, "sentinel-proxy", "Caddy · :443")
+    box(ax, 56.5, 38, 12, 8, "sentinel-proxy", "Caddy · :443\n:80 → 308")
     box(ax, 56.5, 24.5, 12, 8, "sentinel-mosquitto", ":8883 TLS · ACL")
     box(ax, 71, 38, 12, 8, "sentinel-api", "FastAPI\n127.0.0.1:3000")
     box(ax, 84, 38, 11, 8, "sentinel-db", "PostgreSQL 16\naucun port hôte", fill=SURF)
     box(ax, 84, 24.5, 11, 8, "sentinel-ml", "Isolation\nForest")
 
-    box(ax, 66, 6.5, 16, 9, "sentinel-vision", "systemd --user\nYOLOv8n · :8081")
-    box(ax, 85, 6.5, 11, 9, "Webcam USB", "UGREEN\n782×440")
+    box(ax, 63, 6.5, 19, 10, "sentinel-vision", "YOLOv8n · YuNet/SFace\nMiniFASNet · 172.22.0.1:8081", ssize=6.4)
+    box(ax, 85, 6.5, 11, 10, "Webcam USB", "UGREEN\n782×440")
 
     arrow(ax, (22, 44), (28, 33), "Wi-Fi", lpos=0.45, loff=(-2.4, 0.4))
-    arrow(ax, (22, 15.5), (28, 27), "Wi-Fi", lpos=0.45, loff=(-2.4, -0.4))
+    arrow(ax, (22, 27), (28, 29), "Wi-Fi", lpos=0.45, loff=(0, -1.8))
     arrow(ax, (42, 28.5), (56.5, 28.5), "MQTTS 8883", accent=True, both=True, lpos=0.2, loff=(0, 1.2))
     arrow(ax, (42, 33.5), (56.5, 42), "HTTPS 443", accent=True, lpos=0.3, loff=(-1.0, 1.4))
     arrow(ax, (68.5, 42), (71, 42))
     arrow(ax, (83, 42), (84, 42))
-    arrow(ax, (62.5, 32.5), (71, 38.5), "TLS", both=True, lpos=0.55, loff=(-1.6, 0.6))
+    arrow(ax, (62.5, 32.5), (71, 38.5), "TLS · cmd", both=True, lpos=0.55, loff=(-2.4, 0.6))
     arrow(ax, (68.5, 28.5), (84, 28.5), "telemetry → ai/#, cmd", both=True, lpos=0.5, loff=(0, 1.3))
     arrow(ax, (89.5, 32.5), (89.5, 38), "SQL", both=True, lpos=0.5, loff=(2.6, 0))
-    arrow(ax, (77, 38), (77, 15.5), "/cam → :8081", lpos=0.88, loff=(0, 0))
-    arrow(ax, (85, 11), (82, 11), "USB", lpos=0.5, loff=(0, 2.2))
-    ax.text(56, 13.5, "MCO : /proc hôte\nlu par l'API", fontsize=6.4, family=MONO, color=MUTED, va="center")
-    ax.text(2.2, 3.0, "Cible sujet : point d'accès dédié 192.168.10.0/24 (même schéma, sous-réseau étanche)",
+    arrow(ax, (77, 38), (77, 16.5), "/cam · alertes", both=True, lpos=0.66, loff=(0, 0))
+    arrow(ax, (85, 11.5), (82, 11.5), "USB", lpos=0.5, loff=(0, 2.2))
+    arrow(ax, (63, 9), (22, 9), "HTTPS sortant (non identifié)", accent=False, lpos=0.62, loff=(0, 1.3))
+    ax.text(56, 18.6, "MCO : /proc hôte lu par l'API", fontsize=6.2, family=MONO, color=MUTED, va="center")
+    ax.text(2.2, 3.0, "Cible sujet : point d'accès dédié 192.168.10.0/24 (profil prêt, mêmes règles UFW / DOCKER-USER)",
             fontsize=6.8, color=MUTED, family=MONO, va="center")
     fig.savefig(f"{OUT}/schema-reseau.png", dpi=220, facecolor=BG)
+    plt.close(fig)
+
+
+# ------------------------------------------------------------------ identification (portillon)
+def identification():
+    fig, ax = canvas(11.0, 3.5, 100, 32)
+    # ligne 1 : chaîne de traitement
+    box(ax, 1, 19, 13, 9, "Webcam USB", "1280×720 → 782×440")
+    box(ax, 18, 19, 21, 9, "sentinel-vision", "YOLOv8n personne\nYuNet → SFace → MiniFASNet", ssize=6.3)
+    box(ax, 43, 19, 15, 9, "sentinel-api", "POST /api/v1/alerts\nBearer · journal SQL", ssize=6.3)
+    box(ax, 62, 19, 15, 9, "sentinel-mosquitto", "sentinel/…/cmd\nTLS · ACL", ssize=6.3)
+    box(ax, 81, 19, 18, 9, "ESP8266", "buzzer : bips / sirène\nOLED : écran d'alerte", ssize=6.3)
+    arrow(ax, (14, 23.5), (18, 23.5))
+    arrow(ax, (39, 23.5), (43, 23.5), "états", lpos=0.5, loff=(0, 1.6))
+    arrow(ax, (58, 23.5), (62, 23.5), "cmd", lpos=0.5, loff=(0, 1.6))
+    arrow(ax, (77, 23.5), (81, 23.5), "MQTTS", accent=True, lpos=0.5, loff=(0, 1.6))
+    box(ax, 18, 3, 21, 8, "Discord (webhook)", "photo prise à +1 s\nenvoyée si non identifié", dashed=True, ssize=6.3)
+    arrow(ax, (28.5, 19), (28.5, 11), "HTTPS", lpos=0.5, loff=(3.2, 0))
+    # ligne 2 : chronologie (fenêtre de 5 s)
+    x0, x1 = 60, 98
+    xc = x0 + (x1 - x0) * 0.2
+    ax.plot([x0, x1], [8, 8], color=INK, lw=0.9, zorder=2)
+    ax.text(x0 - 1.5, 8, "personne détectée\n2 bips · OLED IDENTIFIEZ-VOUS", ha="right", va="center",
+            fontsize=6.0, family=MONO, color=MUTED, linespacing=1.3)
+    for x, t, col in [(x0, "t = 0", INK), (xc, "+1 s", ACC), (x1, "+5 s", ACC)]:
+        ax.plot([x, x], [6.8, 9.2], color=col, lw=1.2, zorder=3)
+        ax.text(x, 11.0, t, ha="center", va="center", fontsize=6.8, family=MONO, color=col)
+    ax.text(xc, 4.4, "capture photo", ha="center", va="center", fontsize=6.0, family=MONO, color=MUTED)
+    ax.text(x1, 4.4, "non identifié : intrusion", ha="right", va="center", fontsize=6.0, family=MONO, color=MUTED)
+    ax.text((xc + x1) / 2 + 1, 14.2, "connu + vivant 0,5 s → autorisé (photo oubliée)",
+            ha="center", va="center", fontsize=6.0, family=MONO, color=OK)
+    fig.savefig(f"{OUT}/schema-identification.png", dpi=220, facecolor=BG)
     plt.close(fig)
 
 
@@ -188,5 +222,5 @@ def ia_lead():
 
 
 if __name__ == "__main__":
-    network(); wiring(); ia_lead()
+    network(); identification(); wiring(); ia_lead()
     print("ok", OUT)
