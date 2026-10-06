@@ -9,3 +9,7 @@
 #define MQTT_PASSWORD "mot_de_passe_mqtt"
 // Pin certificat serveur (SHA1) — pas de NTP requis. openssl x509 -fingerprint -sha1 -noout -in server.crt
 #define MQTT_CERT_FINGERPRINT "AA:BB:CC:..."
+// Mot de passe ArduinoOTA (mises a jour Wi-Fi). Aleatoire, fort ; recopie dans firmware/.ota_password (0600, gitignore).
+// Generer : python3 -c "import secrets,string;print(''.join(secrets.choice(string.ascii_letters+string.digits) for _ in range(32)))"
+// Sans OTA_PASSWORD, l'OTA est desactive a la compilation.
+#define OTA_PASSWORD "change_me_ota_password"

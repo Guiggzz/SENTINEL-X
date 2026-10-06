@@ -370,6 +370,14 @@ async def send_command(
             )
         payload["color"] = body.color
         payload["state"] = body.state
+    elif body.action == "display":
+        payload["mode"] = body.mode
+        if body.duration_ms is not None:
+            payload["duration_ms"] = body.duration_ms
+        if body.name is not None:
+            payload["name"] = body.name
+    elif body.action == "beep_pattern":
+        payload["pattern"] = body.pattern
 
     topic = f"sentinel/{body.device_id}/cmd"
     try:

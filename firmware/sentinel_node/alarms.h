@@ -18,3 +18,10 @@ const int INTRUS_PATTERN[] = {
   3100,90, 0,60, 3100,90, 0,60, 3100,90, 0,60, 0,330,
 };
 const int INTRUS_STEPS = sizeof(INTRUS_PATTERN) / sizeof(INTRUS_PATTERN[0]) / 2;
+// IDENTIFY : double bip court 2700 Hz (demande d'identification). Joue une seule fois :
+// la commande beep_pattern coupe le buzzer apres IDENT_TOTAL_MS (au milieu du silence final).
+const int IDENT_PATTERN[] = {
+  2700,120, 0,110, 2700,120, 0,200,
+};
+const int IDENT_STEPS = sizeof(IDENT_PATTERN) / sizeof(IDENT_PATTERN[0]) / 2;
+const unsigned long IDENT_TOTAL_MS = 400;

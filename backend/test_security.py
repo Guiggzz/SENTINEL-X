@@ -45,6 +45,43 @@ class CommandValidation(unittest.TestCase):
             with self.assertRaises(ValidationError, msg=body):
                 CommandIn(**body)
 
+    def test_display_valid(self):
+        CommandIn(action="display", mode="identify", duration_ms=8000)
+        CommandIn(action="display", mode="intrusion")
+        CommandIn(action="display", mode="normal")
+        c = CommandIn(action="display", mode="authorized", name="Jean-Luc 2")
+        self.assertEqual(c.name, "Jean-Luc 2")
+        self.assertEqual(CommandIn(action="display", mode="authorized", name="Hélène").name, "Helene")
+        CommandIn(action="display", mode="identify", duration_ms=500)
+        CommandIn(action="display", mode="identify", duration_ms=30000)
+        CommandIn(action="beep_pattern", pattern="identify")
+
+    def test_display_rejects(self):
+        bad = [
+            {"action": "display"},
+            {"action": "display", "mode": "party"},
+            {"action": "display", "mode": "identify", "duration_ms": 499},
+            {"action": "display", "mode": "identify", "duration_ms": 30001},
+            {"action": "display", "mode": "authorized", "name": "A" * 17},
+            {"action": "display", "mode": "authorized", "name": "<script>"},
+            {"action": "display", "mode": "authorized", "name": "a/b#"},
+            {"action": "display", "mode": "authorized", "name": "x\ny"},
+            {"action": "display", "mode": "authorized", "name": ""},
+            {"action": "display", "mode": "identify", "name": "Bob"},
+            {"action": "display", "mode": "normal", "duration_ms": 1000},
+            {"action": "display", "mode": "identify", "song": "gaz"},
+            {"action": "display", "mode": "identify", "text": "hack"},
+            {"action": "beep", "mode": "identify"},
+            {"action": "buzzer_on", "name": "Bob"},
+            {"action": "beep_pattern"},
+            {"action": "beep_pattern", "pattern": "sos"},
+            {"action": "beep_pattern", "pattern": "identify", "duration_ms": 1000},
+            {"action": "beep", "pattern": "identify"},
+        ]
+        for body in bad:
+            with self.assertRaises(ValidationError, msg=body):
+                CommandIn(**body)
+
     def test_alert_tokens(self):
         AlertIn(device_id="sentinel-node-01", type="vision", state="face_unknown")
         with self.assertRaises(ValidationError):
