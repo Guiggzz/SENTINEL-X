@@ -280,80 +280,57 @@
     });
   });
 
-  // Caméra : une seule boucle de trames JPEG, qui alimente l'image visible :
-  // aperçu de la Supervision (500 ms) ou onglet Caméra (250 ms). En pause sur les autres
-  // onglets et quand la page est masquée. La capture d'enrôlement (Visages) passe par
-  // /cam/snapshot_raw.jpg côté serveur et ne dépend pas de ces images.
+  // Caméra : flux MJPEG continu (/cam/stream.mjpg), un seul ouvert à la fois, sur l'image
+  // visible : onglet Caméra (30 img/s) ou aperçu Supervision (10 img/s). Ailleurs, ou page
+  // masquée, le src est retiré et la connexion fermée. La capture d'enrôlement (Visages)
+  // passe par /cam/snapshot_raw.jpg et ne dépend pas de ces images.
   function setupCamera() {
     const params = new URLSearchParams(location.search);
     try { localStorage.removeItem("sentinelCamUrl"); } catch (_) {}
-    const snap = params.get("cam") || (location.origin + "/cam/snapshot.jpg");
+    const base = params.get("cam") || "/cam/stream.mjpg";
     const targets = {
-      cam: { img: el("camFeed"), fallback: el("camFallback"), period: 250 },
-      ops: { img: el("camPreview"), fallback: el("camPreviewFallback"), period: 500 },
+      cam: { img: el("camFeed"), fallback: el("camFallback"), fps: 30 },
+      ops: { img: el("camPreview"), fallback: el("camPreviewFallback"), fps: 10 },
     };
-    let current = null;   // cible active (ou null = en pause)
-    let timer = null;
-    let fails = 0;
-    let objectUrl = null;
-    let gen = 0;
+    let current = null;
+    let retry = null;
+    let renew = null;
 
     function showFallback(t, msg) {
       t.img.style.display = "none";
       t.fallback.style.display = "grid";
-      t.fallback.textContent = msg || "Flux indisponible";
+      t.fallback.textContent = msg;
     }
-    function showFeed(t) {
-      t.img.style.display = "block";
-      t.fallback.style.display = "none";
+    function stop(t) {
+      t.img.onload = null;
+      t.img.onerror = null;
+      t.img.removeAttribute("src");
+      showFallback(t, "Flux en pause");
     }
-
-    async function tick(g, t) {
-      if (g !== gen) return;
-      try {
-        const r = await fetch(snap + (snap.includes("?") ? "&" : "?") + "t=" + Date.now(), {
-          cache: "no-store",
-          credentials: "same-origin",
-        });
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        const blob = await r.blob();
-        if (g !== gen) return;
-        if (!blob || blob.size < 100) throw new Error("image vide");
-        if (objectUrl) URL.revokeObjectURL(objectUrl);
-        objectUrl = URL.createObjectURL(blob);
-        await new Promise((resolve, reject) => {
-          t.img.onload = () => resolve();
-          t.img.onerror = () => reject(new Error("decode"));
-          t.img.src = objectUrl;
-        });
-        if (g !== gen) return;
-        fails = 0;
-        showFeed(t);
-        timer = setTimeout(() => tick(g, t), t.period);
-      } catch (err) {
-        if (g !== gen) return;
-        fails += 1;
-        showFallback(t, "Flux indisponible (" + (err && err.message ? err.message : err) + ")");
-        timer = setTimeout(() => tick(g, t), fails >= 3 ? 3000 : 800);
-      }
+    function start(t) {
+      t.img.onload = () => {
+        t.img.style.display = "block";
+        t.fallback.style.display = "none";
+      };
+      t.img.onerror = () => {
+        showFallback(t, "Flux indisponible, nouvel essai…");
+        clearTimeout(retry);
+        retry = setTimeout(() => { if (current === t) start(t); }, 2000);
+      };
+      t.img.src = `${base}${base.includes("?") ? "&" : "?"}fps=${t.fps}&t=${Date.now()}`;
     }
 
-    // name = onglet affiché ; la boucle suit la cible correspondante, s'il y en a une
     function follow(name) {
       const next = document.hidden ? null : (targets[name] || null);
       if (next === current) return;
-      gen += 1;
-      clearTimeout(timer);
-      timer = null;
-      if (current) {
-        current.img.removeAttribute("src");
-        showFallback(current, "Flux en pause");
-      }
-      if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+      clearTimeout(retry);
+      clearInterval(renew);
+      if (current) stop(current);
       current = next;
       if (current) {
-        fails = 0;
-        tick(gen, current);
+        start(current);
+        // le serveur coupe un flux au bout de 30 min : on le renouvelle avant
+        renew = setInterval(() => { if (current) start(current); }, 20 * 60 * 1000);
       }
     }
 

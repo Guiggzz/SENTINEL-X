@@ -465,6 +465,45 @@ _CAM_BASE = os.getenv("VISION_BASE_URL", "http://172.22.0.1:8081")
 _CAM_ALLOWED = {"snapshot.jpg": "image/jpeg", "snapshot_raw.jpg": "image/jpeg", "health": "application/json"}
 
 
+_CAM_STREAM_MAX_S = float(os.getenv("CAM_STREAM_MAX_S", "1800"))  # le client se reconnecte
+
+
+@app.get("/cam/stream.mjpg")
+async def cam_stream(fps: int = Query(30, ge=1, le=30), _user: str = Depends(require_auth)):
+    """Flux MJPEG continu (multipart/x-mixed-replace) relayé depuis le service vision."""
+    from fastapi.responses import StreamingResponse
+    u = urlsplit(_CAM_BASE)
+    try:
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(u.hostname, u.port or 80), timeout=3)
+        writer.write(f"GET /stream.mjpg?fps={fps} HTTP/1.0\r\nHost: {u.hostname}\r\n\r\n".encode())
+        await writer.drain()
+        head = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=5)
+    except Exception:
+        raise HTTPException(status_code=503, detail="service vision indisponible")
+    lines = head.decode("latin-1").split("\r\n")
+    ctype = next((l.split(":", 1)[1].strip() for l in lines if l.lower().startswith("content-type:")), "")
+    if " 200 " not in lines[0] + " " or not ctype.startswith("multipart/x-mixed-replace"):
+        writer.close()
+        raise HTTPException(status_code=503, detail="flux caméra indisponible")
+
+    async def relay():
+        loop = asyncio.get_running_loop()
+        end = loop.time() + _CAM_STREAM_MAX_S
+        try:
+            while loop.time() < end:
+                chunk = await asyncio.wait_for(reader.read(65536), timeout=10)
+                if not chunk:
+                    break
+                yield chunk
+        except Exception:
+            pass
+        finally:
+            writer.close()
+
+    return StreamingResponse(relay(), media_type=ctype, headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
+
+
 @app.get("/cam/{name}")
 async def cam_proxy(name: str, _user: str = Depends(require_auth)):
     import asyncio as _aio

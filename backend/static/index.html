@@ -116,7 +116,7 @@
         <p class="mco-sub">objectif &lt; 100 ms</p>
       </article>
       <article class="panel cam-preview-panel">
-        <h2>Caméra <span class="h-note">aperçu · 2 img/s</span></h2>
+        <h2>Caméra <span class="h-note">aperçu · 10 img/s</span></h2>
         <a class="cam-link" href="#cam" title="Ouvrir l'onglet Caméra">
           <span class="cam-wrap cam-preview">
             <img id="camPreview" alt="Aperçu caméra" width="782" height="440" />
@@ -145,7 +145,7 @@
         <img id="camFeed" alt="Flux caméra indisponible" width="782" height="440" />
         <div id="camFallback" class="cam-fallback">Flux en pause</div>
       </div>
-      <p class="hint">Trames JPEG · <code>/cam/snapshot.jpg</code> (≈4 FPS) · surcharge via <code>?cam=</code></p>
+      <p class="hint">Flux MJPEG continu · <code>/cam/stream.mjpg</code> (30 img/s, 1280×720) · surcharge via <code>?cam=</code></p>
     </article>
   </section>
 
@@ -252,7 +252,7 @@
   <footer>
     EPSI Workshop · SENTINEL-X · MQTT / WebSocket
   </footer>
-  <script src="/static/app.js?v=15"></script>
+  <script src="/static/app.js?v=16"></script>
   <script src="/static/ai.js?v=14"></script>
   <script src="/static/faces.js?v=17"></script>
 </body>
