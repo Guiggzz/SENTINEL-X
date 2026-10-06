@@ -47,7 +47,8 @@ class LivenessConfig:
     live_threshold: float = 0.60   # moyenne lissée >= seuil -> vivant
     spoof_threshold: float = 0.30  # moyenne lissée <= seuil -> leurre
     alpha: float = 0.40            # poids de la nouvelle mesure (EMA)
-    min_obs: int = 2               # mesures minimales avant toute décision
+    min_obs: int = 2               # mesures minimales avant « vivant »
+    spoof_min_obs: int = 4         # « leurre » exige plus de preuves (~1,2 s) : pas de fausse alerte
     min_face: int = 48             # largeur YuNet mini (px) pour mesurer ; sinon « vérification »
     every: int = 1                 # mesure toutes les N passes visage par piste
     enroll_threshold: float = 0.60  # une seule image à l'enrôlement
@@ -61,6 +62,7 @@ class LivenessConfig:
             spoof_threshold=_env_float("SENTINEL_LIVENESS_SPOOF", cls.spoof_threshold),
             alpha=min(1.0, max(0.05, _env_float("SENTINEL_LIVENESS_ALPHA", cls.alpha))),
             min_obs=max(1, int(_env_float("SENTINEL_LIVENESS_MIN_OBS", cls.min_obs))),
+            spoof_min_obs=max(1, int(_env_float("SENTINEL_LIVENESS_SPOOF_MIN_OBS", cls.spoof_min_obs))),
             min_face=max(16, int(_env_float("SENTINEL_LIVENESS_MIN_FACE", cls.min_face))),
             every=max(1, int(_env_float("SENTINEL_LIVENESS_EVERY", cls.every))),
             enroll_threshold=_env_float("SENTINEL_LIVENESS_ENROLL", cls.enroll_threshold),
@@ -177,7 +179,7 @@ def decide(previous: str, ema: float | None, n_obs: int, cfg: LivenessConfig) ->
     if ema is None or n_obs < cfg.min_obs:
         return "checking"
     if ema <= cfg.spoof_threshold:
-        return "spoof"
+        return "spoof" if n_obs >= cfg.spoof_min_obs else "checking"
     if ema >= cfg.live_threshold:
         return "live"
     return previous if previous in ("live", "spoof") else "checking"
@@ -252,7 +254,12 @@ class LivenessTracker:
         return out
 
     def wants_measure(self, tr: Track) -> bool:
-        return not tr.small and (tr.n_obs == 0 or (tr.passes - 1) % self.cfg.every == 0)
+        if tr.small:
+            return False
+        every = self.cfg.every
+        if tr.state == "live" and tr.n_obs >= 6 and (tr.ema or 0) >= 0.9:
+            every = max(every, 3)  # piste déjà sûre : on économise le CPU (plusieurs visages)
+        return tr.n_obs == 0 or (tr.passes - 1) % every == 0
 
     def reset(self) -> None:
         self.tracks.clear()

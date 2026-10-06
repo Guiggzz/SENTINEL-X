@@ -22,7 +22,7 @@ from face_liveness import (
     retina_like_box,
 )
 
-CFG = LivenessConfig(live_threshold=0.70, spoof_threshold=0.35, alpha=0.4, min_obs=3, min_face=56)
+CFG = LivenessConfig(live_threshold=0.70, spoof_threshold=0.35, alpha=0.4, min_obs=3, spoof_min_obs=3, min_face=56)
 MODELS = Path(__file__).resolve().parent / "models"
 
 
@@ -62,6 +62,12 @@ class DecisionTests(unittest.TestCase):
         self.assertEqual(decide("checking", 0.99, 2, CFG), "checking")
         self.assertEqual(decide("checking", 0.99, 3, CFG), "live")
         self.assertEqual(decide("checking", 0.10, 3, CFG), "spoof")
+
+    def test_spoof_needs_more_evidence_than_live(self) -> None:
+        cfg = LivenessConfig(min_obs=2, spoof_min_obs=4)
+        self.assertEqual(decide("checking", 0.05, 2, cfg), "checking")
+        self.assertEqual(decide("checking", 0.05, 4, cfg), "spoof")
+        self.assertEqual(decide("checking", 0.95, 2, cfg), "live")
 
     def test_hysteresis_between_thresholds(self) -> None:
         self.assertEqual(decide("checking", 0.5, 5, CFG), "checking")

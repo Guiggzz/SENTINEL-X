@@ -32,6 +32,7 @@ class IdentityConfig:
     known_hold_s: float = 0.5   # « connu + vivant » doit tenir ce temps
     auth_grace_s: float = 10.0  # reste autorisé N s après la dernière vue du visage connu
     idle_s: float = 5.0         # plus personne depuis N s -> retour au repos
+    present_s: float = 1.5      # intrusion seulement si quelqu'un est encore là à l'expiration
 
     @classmethod
     def from_env(cls) -> "IdentityConfig":
@@ -135,7 +136,7 @@ class IdentityMachine:
             if known_ok:
                 self._authorize(now, name)
                 events.append(Event("identified", name, info))
-            elif now - self.since >= self.cfg.window_s:
+            elif now - self.since >= self.cfg.window_s and now - (self._last_person or -1e9) <= self.cfg.present_s:
                 self.intrusion_kind = "spoof" if self._spoof_seen else "unknown"
                 self._goto(INTRUSION, now)
                 events.append(Event("intrusion_spoof" if self._spoof_seen else "intrusion", None, info))

@@ -81,6 +81,11 @@ class IdentityTests(unittest.TestCase):
         self.c.run(self.m, 5.0, True, "unknown")
         self.assertEqual(self.c.events, ["identify_start", "intrusion"])
 
+    def test_person_left_before_expiry_no_intrusion(self) -> None:
+        self.c.run(self.m, 3.0, True, "unknown")
+        self.c.run(self.m, 6.0, False)
+        self.assertEqual(self.c.events, ["identify_start", "idle"])
+
     def test_authorized_stays_while_in_view_then_grace(self) -> None:
         self.c.run(self.m, 1.0, True, "known", "Guillaume")
         self.assertEqual(self.m.state, AUTHORIZED)

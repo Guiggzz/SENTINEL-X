@@ -424,7 +424,7 @@ Méthode (vision/face_liveness.py, CPU, OpenCV DNN) :
 Portillon d'identification (vision/identity.py, machine d'états testée avec horloge factice) :
 - repos -> personne (YOLO ou visage) -> 2 bips courts « identifiez-vous » (action beep existante,
   sans reflash), écran OLED « identify » si le firmware le gère, fenêtre de 8 s ;
-- visage connu ET vivant stable 0,5 s -> « Autorisé : <nom> » (bip court + LED verte), maintenu tant
+- un visage connu ET vivant stable 0,5 s (même avec un inconnu en arrière-plan) -> « Autorisé : <nom> » (bip court + LED verte), maintenu tant
   que la personne est visible + 10 s de grâce ;
 - fenêtre expirée (inconnu, aucun visage, leurre) -> vision/intrusion (ou intrusion_spoof) : sirène
   « intrus » + LED rouge si l'alarme visage OU l'alarme présence est armée ; alerte Discord avec
@@ -435,7 +435,8 @@ Portillon d'identification (vision/identity.py, machine d'états testée avec ho
 Décision et seuils (variables d'environnement SENTINEL_LIVENESS_*) :
 - connu + vivant (moyenne >= 0,60, au moins 2 mesures) -> « connu » ;
 - moyenne <= 0,30 -> « LEURRE » ;
-- entre les deux, < 2 mesures ou visage < 48 px -> « Vérification… » (jamais « connu ») ;
+- « leurre » exige au moins 4 mesures (~1,2 s) ; entre les deux, < 2 mesures ou visage < 48 px
+  -> « Vérification… » (jamais « connu ») ;
 - enrôlement : capture/photo avec score < 0,60 refusée (422 « image non vivante (photo/écran ?) ») ;
   les empreintes déjà enrôlées n'ont pas été modifiées.
 
@@ -443,7 +444,7 @@ Constats sur site (webcam UGREEN 440p) : vrais visages médiane 0,97-1,00 par pi
 très proche (> 130 px) : creux ponctuels jusqu'à 0,33, moyenne lissée minimale 0,44 (d'où le seuil
 leurre à 0,30 et le seuil vivant abaissé à 0,60 pour ne pas bloquer les personnes enrôlées). Échantillons « faux » du dépôt d'origine : 0,03 et 0,09 (rejetés), vrai : 0,99.
 
-Tests : vision 66 OK (découpe, lissage, décisions, enrôlement, portillon, Discord cooldown),
+Tests : vision 68 OK (découpe, lissage, décisions, enrôlement, portillon, Discord cooldown),
 backend 27 OK (face_spoof, portillon, commandes OLED) ; check-demo.sh tout OK.
 
 Limites : modèle 2D passif. Masques 3D, vidéo haute qualité sur grand écran sans bord visible,

@@ -393,7 +393,17 @@ class CameraWorker:
                                "live_state": live_state}
             self._face_marks = marks
         if self.identify_on:
-            self._update_identity(status, name, score, liveness)
+            # portillon : un seul visage connu ET vivant suffit à s'identifier, même si un visage
+            # inconnu (arrière-plan) est aussi dans le champ
+            known_rows = [r for r in rows if r[0] == "known"]
+            if known_rows:
+                kname = ", ".join(dict.fromkeys(r[1] for r in known_rows if r[1]))
+                klive = [r[3] for r in known_rows if r[3] is not None]
+                self._update_identity("known", kname, min(r[2] for r in known_rows if r[2] is not None)
+                                      if any(r[2] is not None for r in known_rows) else None,
+                                      min(klive) if klive else None)
+            else:
+                self._update_identity(status, name, score, liveness)
         else:
             self._update_face_alerts(status, name)
 
