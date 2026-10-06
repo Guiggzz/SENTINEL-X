@@ -84,3 +84,7 @@ vision/snapshot_*.jpg
 !ml/models/model.joblib
 ml/models/*.tmp
 # metadata.json is tracked (deliverable)
+
+# Override local (port 80 activé par harden-root.sh)
+infra/docker-compose.override.yml
+infra/hardening/harden-root.log

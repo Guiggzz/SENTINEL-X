@@ -21,11 +21,17 @@ class TelemetryOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# Identifiants stricts : empêchent l'injection de topics MQTT (/, +, #) et de contenu HTML
+DEVICE_ID_RE = r"^[A-Za-z0-9_-]{1,32}$"
+TOKEN_RE = r"^[A-Za-z0-9_.:-]{1,64}$"
+
+
 class AlertIn(BaseModel):
-    device_id: str = Field(..., min_length=1, max_length=64)
-    type: str = Field(..., min_length=1, max_length=64)
-    state: str = Field(..., min_length=1, max_length=64)
-    uptime_ms: int | None = None
+    model_config = {"extra": "forbid"}
+    device_id: str = Field(..., pattern=DEVICE_ID_RE)
+    type: str = Field(..., pattern=TOKEN_RE)
+    state: str = Field(..., pattern=TOKEN_RE)
+    uptime_ms: int | None = Field(default=None, ge=0, le=2**53)
 
 
 class AlertOut(BaseModel):
@@ -49,7 +55,8 @@ class DeviceStatusOut(BaseModel):
 
 
 class CommandIn(BaseModel):
-    device_id: str = "sentinel-node-01"
+    model_config = {"extra": "forbid"}
+    device_id: str = Field(default="sentinel-node-01", pattern=DEVICE_ID_RE)
     action: Literal["buzzer_on", "buzzer_off", "beep", "led", "led_auto"]
     duration_ms: int | None = Field(default=None, ge=100, le=60000)
     color: Literal["red", "green"] | None = None

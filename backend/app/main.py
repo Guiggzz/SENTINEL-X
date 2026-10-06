@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 import asyncio
+import hmac
 import json
 import logging
 from contextlib import asynccontextmanager
@@ -10,8 +11,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from urllib.parse import urlsplit
+
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,6 +39,8 @@ from app.auth_security import (
     LoginBody,
     clear_session_cookie,
     create_session_cookie,
+    login_failed,
+    login_succeeded,
     rate_limit_commands,
     rate_limit_login,
     require_auth,
@@ -156,7 +163,86 @@ async def lifespan(app: FastAPI):
     logger.info("SENTINEL-X API stopped")
 
 
-app = FastAPI(title="SENTINEL-X API", version="1.0.0", lifespan=lifespan)
+# Prod : pas de /docs, /redoc ni /openapi.json (réduction de la surface de reconnaissance)
+app = FastAPI(
+    title="SENTINEL-X API",
+    version="1.0.0",
+    lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
+
+security_log = logging.getLogger("sentinel.security")
+
+# ------------------------------------------------------------------ durcissement HTTP
+_UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
+_MAX_BODY_DEFAULT = 64 * 1024          # JSON (login, commandes, réglages)
+_MAX_BODY_FACES = 12 * 1024 * 1024     # enrôlement visages (multipart, 5 photos max)
+
+
+def _same_origin(request: Request) -> bool:
+    """Anti-CSRF : Origin (ou à défaut Referer) doit correspondre à l'hôte demandé."""
+    host = (request.headers.get("host") or "").lower()
+    src = request.headers.get("origin") or request.headers.get("referer")
+    if not src or src == "null":
+        return False
+    return urlsplit(src).netloc.lower() == host
+
+
+@app.middleware("http")
+async def security_middleware(request: Request, call_next):
+    method = request.method.upper()
+    path = request.url.path
+    if method in _UNSAFE:
+        # 1) taille du corps (Caddy limite aussi en amont)
+        limit = _MAX_BODY_FACES if path.startswith("/api/v1/faces") else _MAX_BODY_DEFAULT
+        try:
+            clen = int(request.headers.get("content-length") or "0")
+        except ValueError:
+            return JSONResponse({"detail": "Requête invalide"}, status_code=400)
+        if clen > limit:
+            return JSONResponse({"detail": "Requête trop volumineuse"}, status_code=413)
+        # 2) CSRF : requêtes authentifiées par cookie => Origin/Referer obligatoire et identique.
+        #    (les clients machine en Bearer, sans cookie, ne sont pas concernés)
+        has_cookie = "sentinel_session" in request.cookies
+        bearer = (request.headers.get("authorization") or "").lower().startswith("bearer ")
+        has_src = bool(request.headers.get("origin") or request.headers.get("referer"))
+        if (has_cookie and not bearer) or has_src:
+            if not _same_origin(request):
+                security_log.warning(
+                    "CSRF_BLOCK method=%s path=%s origin=%s",
+                    method, path[:64], (request.headers.get("origin") or request.headers.get("referer") or "-")[:64],
+                )
+                return JSONResponse({"detail": "Origine refusée"}, status_code=403)
+    response = await call_next(request)
+    # En-têtes de sécurité aussi en accès direct :3000 (Caddy les fixe pour :443)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    if path.startswith("/api/") or path.startswith("/cam/"):
+        response.headers.setdefault("Cache-Control", "no-store")
+    return response
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_error_handler(request: Request, exc: StarletteHTTPException):
+    detail = exc.detail if isinstance(exc.detail, str) else "Erreur"
+    return JSONResponse({"detail": detail}, status_code=exc.status_code, headers=getattr(exc, "headers", None))
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError):
+    # Pas d'écho des valeurs envoyées : uniquement les champs en erreur
+    fields = sorted({".".join(str(x) for x in e.get("loc", ())[1:]) or "body" for e in exc.errors()})
+    return JSONResponse({"detail": "Requête invalide", "champs": fields[:10]}, status_code=422)
+
+
+@app.exception_handler(Exception)
+async def unhandled_error_handler(request: Request, exc: Exception):
+    logger.exception("erreur non gérée sur %s %s", request.method, request.url.path)
+    return JSONResponse({"detail": "Erreur interne"}, status_code=500)
+
 # IA / alarme presence / MCO (memes regles d'authentification que les autres routes /api/v1)
 app.include_router(extras.router, dependencies=[Depends(require_auth)])
 app.include_router(faces.router, dependencies=[Depends(require_auth)])
@@ -284,7 +370,8 @@ async def send_command(
     try:
         mqtt_bridge.publish(topic, payload)
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"MQTT publish failed: {exc}") from exc
+        logger.warning("MQTT publish failed: %s", exc)
+        raise HTTPException(status_code=503, detail="Broker MQTT indisponible") from exc
 
     return CommandOut(ok=True, topic=topic, payload=payload)
 
@@ -293,15 +380,19 @@ async def send_command(
 @app.post("/api/v1/auth/login")
 async def login(body: LoginBody, request: Request, response: Response) -> dict[str, str]:
     rate_limit_login(request)
-    if body.username != OPERATOR_USER or not verify_password(body.password, OPERATOR_PASSWORD_HASH):
+    # bcrypt évalué même si l'utilisateur est faux (pas d'oracle temporel sur l'identifiant)
+    pw_ok = verify_password(body.password, OPERATOR_PASSWORD_HASH)
+    if not (hmac.compare_digest(body.username, OPERATOR_USER) and pw_ok):
+        login_failed(request, body.username)
         raise HTTPException(status_code=401, detail="Identifiants invalides")
+    login_succeeded(request, body.username)
     create_session_cookie(response, body.username)
     return {"ok": "true", "user": body.username}
 
 
 @app.post("/api/v1/auth/logout")
-async def logout(response: Response) -> dict[str, str]:
-    clear_session_cookie(response)
+async def logout(request: Request, response: Response) -> dict[str, str]:
+    clear_session_cookie(response, request.cookies.get("sentinel_session"))
     return {"ok": "true"}
 
 
@@ -322,6 +413,12 @@ async def login_page() -> FileResponse:
 async def websocket_endpoint(websocket: WebSocket) -> None:
     # Cookie de session (navigateur) ou refus
     cookie = websocket.cookies.get("sentinel_session")
+    origin = websocket.headers.get("origin")
+    host = (websocket.headers.get("host") or "").lower()
+    # Anti Cross-Site WebSocket Hijacking : Origin (si présent) doit être le même hôte
+    if origin and urlsplit(origin).netloc.lower() != host:
+        await websocket.close(code=4403)
+        return
     if not session_user(cookie):
         await websocket.close(code=4401)
         return

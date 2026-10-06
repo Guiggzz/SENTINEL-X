@@ -169,10 +169,12 @@ SOURCES_TOPIC = "sentinel/config/sources"
 
 
 class PersonAlarmIn(BaseModel):
+    model_config = {"extra": "forbid"}
     enabled: bool
 
 
 class SourcesIn(BaseModel):
+    model_config = {"extra": "forbid"}
     pir: bool | None = None
     vision: bool | None = None
     gaz_ia: bool | None = None

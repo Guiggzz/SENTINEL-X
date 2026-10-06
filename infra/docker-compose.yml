@@ -25,7 +25,10 @@ services:
       - ./certs/server.crt:/mosquitto/certs/server.crt:ro
       - ./certs/server.key:/mosquitto/certs/server.key:ro
       - mosquitto-data:/mosquitto/data
-    # Entrypoint eclipse-mosquitto fait chown/setgid — pas de read_only/cap_drop ALL
+    # Entrypoint eclipse-mosquitto fait chown puis bascule en uid 1883 :
+    # on retire toutes les capabilities sauf celles strictement nécessaires
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID]
     security_opt: ["no-new-privileges:true"]
     mem_limit: 128m
     cpus: 0.50
@@ -55,8 +58,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-    # Postgres a besoin d'écrire hors volume data — pas de read_only
+    # Postgres a besoin d'écrire hors volume data — pas de read_only ;
+    # capabilities réduites au minimum requis par l'entrypoint officiel (chown + bascule uid postgres)
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
     security_opt: ["no-new-privileges:true"]
+    shm_size: 128m
     mem_limit: 512m
     cpus: 1.0
     pids_limit: 200
@@ -159,12 +166,21 @@ services:
     cpus: 1.0
     pids_limit: 200
     logging: *default-logging
-    networks: [sentinel-front, sentinel-back]
+    # Réseau interne uniquement (DB + broker + API) : ni joignable depuis le proxy, ni sortie Internet
+    networks: [sentinel-back]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('sentinel-mosquitto', 8883), 3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   proxy:
     image: caddy:2.8-alpine
     container_name: sentinel-proxy
     restart: unless-stopped
+    # Seul 443 est publié ici ; la redirection :80 -> https est ajoutée par
+    # docker-compose.override.yml (créé par harden-root.sh après arrêt d'Apache)
     ports:
       - "443:443"
     volumes:
@@ -190,7 +206,8 @@ services:
     logging: *default-logging
     networks: [sentinel-front]
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80 >/dev/null 2>&1 || exit 0"]
+      # chaîne complète : TLS Caddy -> API -> DB
+      test: ["CMD-SHELL", "wget -q -O /dev/null --no-check-certificate https://127.0.0.1/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # SENTINEL-X — durcissement hôte (idempotent, commentaires FR)
+# NOTE (2026-10-06) : remplacé par infra/harden-root.sh (idempotent, SANS "ufw reset"). Ne plus relancer ce script.
 # Exécuter via: pkexec bash ~/sentinel-x/infra/hardening/harden.sh
 # Ne coupe PAS le hotspot iPhone ni Docker existant (healthai inclus).
 set -euo pipefail

@@ -176,11 +176,14 @@
       const up = s.uptime_s; const d = Math.floor(up / 86400), hh = Math.floor((up % 86400) / 3600);
       $("mcoLoad").textContent = `charge ${s.load[0]} · ${s.cpu_count} cœurs · RAM ${s.mem.total_gb} Go · hôte up ${d} j ${hh} h`;
       const list = $("mcoServices");
-      list.innerHTML = "";
+      list.replaceChildren();
       for (const [name, v] of Object.entries(s.services)) {
         const li = document.createElement("li");
         const extra = v.latency_ms != null ? `${v.latency_ms} ms` : v.status || "";
-        li.innerHTML = `<span class="dot ${v.ok ? "ok" : "ko"}"></span><span>${name}</span><span class="muted">${v.ok ? "ok" : "KO"} ${extra}</span>`;
+        const dot = document.createElement("span"); dot.className = `dot ${v.ok ? "ok" : "ko"}`;
+        const nm = document.createElement("span"); nm.textContent = name;
+        const st = document.createElement("span"); st.className = "muted"; st.textContent = `${v.ok ? "ok" : "KO"} ${extra}`;
+        li.append(dot, nm, st);
         list.appendChild(li);
       }
     } catch { /* ignore */ }

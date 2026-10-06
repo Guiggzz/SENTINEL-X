@@ -1,6 +1,8 @@
 [Unit]
 Description=SENTINEL-X vision service (webcam + YOLO MJPEG)
 After=network.target
+# réessaie indéfiniment tant que le bridge Docker (172.22.0.1) n'existe pas
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -8,6 +10,8 @@ WorkingDirectory=%h/sentinel-x/vision
 ExecStart=%h/sentinel-x/vision/.venv/bin/python %h/sentinel-x/vision/vision_service.py
 Restart=on-failure
 RestartSec=3
+NoNewPrivileges=yes
+UMask=0077
 Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=%h/.config/sentinel/vision.env
 Environment=SENTINEL_YOLO_MODEL=yolov8n.pt

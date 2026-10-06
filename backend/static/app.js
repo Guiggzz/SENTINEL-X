@@ -71,7 +71,9 @@
   function addLog(tag, message) {
     const li = document.createElement("li");
     const tagClass = tag === "ALERT" ? "tag alert" : "tag";
-    li.innerHTML = `<span class="time">${nowLabel()}</span><span class="${tagClass}">${tag}</span><span class="msg">${message}</span>`;
+    // textContent (jamais innerHTML) : les messages viennent du MQTT/API => pas d'injection HTML (XSS)
+    const mk = (cls, txt) => { const e = document.createElement("span"); e.className = cls; e.textContent = String(txt); return e; };
+    li.append(mk("time", nowLabel()), mk(tagClass, tag), mk("msg", message));
     eventLog.prepend(li);
     while (eventLog.children.length > 80) eventLog.removeChild(eventLog.lastChild);
   }

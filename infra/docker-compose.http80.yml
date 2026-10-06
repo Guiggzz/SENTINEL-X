@@ -1,0 +1,8 @@
+# SENTINEL-X — publication du port 80 (redirection 308 vers HTTPS par Caddy).
+# NE PAS activer tant qu'Apache occupe le port 80 de l'hôte.
+# infra/harden-root.sh désactive Apache puis copie ce fichier en docker-compose.override.yml
+# (fusionné automatiquement par "docker compose").
+services:
+  proxy:
+    ports:
+      - "80:80"

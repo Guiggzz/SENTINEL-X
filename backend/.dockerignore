@@ -1,0 +1,11 @@
+# SENTINEL-X — rien d inutile dans l image (surface réduite)
+__pycache__/
+**/__pycache__/
+*.pyc
+.venv/
+static/_old/
+test_*.py
+.pytest_cache/
+Dockerfile
+.dockerignore
+*.bak

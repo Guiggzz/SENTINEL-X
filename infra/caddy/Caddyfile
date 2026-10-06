@@ -1,48 +1,69 @@
-# SENTINEL-X reverse proxy TLS (port 443 ; :80 occupé par apache hôte)
+# SENTINEL-X — reverse proxy TLS durci
+# :443 = interface (HTTPS seul) ; :80 = redirection HTTPS uniquement
+# (le port 80 de l'hôte n'est publié qu'une fois Apache désactivé par infra/harden-root.sh)
 {
     auto_https off
     admin off
     servers {
-        protocols h1
+        protocols h1 h2
+        # anti slowloris / connexions pendantes
+        timeouts {
+            read_header 10s
+            read_body 30s
+            idle 2m
+        }
+        max_header_size 16KB
+    }
+    log {
+        output stdout
+        format console
+        level WARN
     }
 }
 
 (security_headers) {
     header {
-        Strict-Transport-Security "max-age=86400"
+        # HSTS 1 an (le certificat est auto-signé : les navigateurs l'ignorent tant qu'il n'est pas approuvé)
+        Strict-Transport-Security "max-age=31536000"
         X-Content-Type-Options "nosniff"
         X-Frame-Options "DENY"
         Referrer-Policy "no-referrer"
-        Permissions-Policy "camera=(), microphone=(), geolocation=()"
-        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss:; frame-ancestors 'none'"
+        Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+        # CSP stricte : toutes les librairies sont servies localement (/static/vendor), aucun inline
+        Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' wss:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+        Cross-Origin-Opener-Policy "same-origin"
+        Cross-Origin-Resource-Policy "same-origin"
+        X-Permitted-Cross-Domain-Policies "none"
+        # pas de bannière serveur (ni Caddy, ni uvicorn)
         -Server
+        -X-Powered-By
         Alt-Svc "clear"
     }
 }
 
 :443 {
     import security_headers
-    tls /certs/server.crt /certs/server.key
-
-    # camera : via l'API (authentification obligatoire), plus d'acces direct au service vision
-    handle /cam/* {
-        reverse_proxy sentinel-api:3000
+    tls /certs/server.crt /certs/server.key {
+        protocols tls1.2 tls1.3
     }
 
-    @websockets {
-        path /ws*
-        header Connection *Upgrade*
-        header Upgrade websocket
+    # Taille max des requêtes : 12 Mo pour l'enrôlement visage (5 photos x 5 Mo max côté API), 64 Ko ailleurs
+    @faces path /api/v1/faces /api/v1/faces/*
+    request_body @faces {
+        max_size 12MB
     }
-    handle @websockets {
-        reverse_proxy sentinel-api:3000
-    }
-
-    handle /api/* {
-        reverse_proxy sentinel-api:3000
+    @notfaces not path /api/v1/faces /api/v1/faces/*
+    request_body @notfaces {
+        max_size 64KB
     }
 
-    handle {
-        reverse_proxy sentinel-api:3000
+    # Tout passe par l'API (authentification, y compris la caméra /cam/*)
+    reverse_proxy sentinel-api:3000 {
+        header_down -Server
     }
+}
+
+:80 {
+    import security_headers
+    redir https://{host}{uri} 308
 }

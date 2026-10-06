@@ -141,3 +141,263 @@ Fait (sans activer l'AP, sans flasher l'ESP):
 - Doc: docs/reseau-table.md (plan IP + one-liners switchover)
 
 Uplink actuel inchangé: Guiggzz sur wlp0s20f3, gateway ping OK.
+
+==============================================================================
+### DURCISSEMENT AVANT PENTEST — 2026-10-06 09:52 (heure de Paris) — hôte 172.20.10.4 (wlp0s20f3, hotspot Guiggzz)
+==============================================================================
+
+Résumé des mesures
+- Réseau : la vision (MJPEG) n'écoute plus sur 0.0.0.0:8081 mais sur 172.22.0.1:8081 (passerelle du
+  réseau Docker sentinel-front) => joignable par le conteneur API uniquement, plus depuis le Wi-Fi.
+  Défense en profondeur : UFW deny 8081 + rp_filter=1 (anti-usurpation). Bannière HTTP masquée, CORS * retiré.
+- Docker : seuls 443 (Caddy) et 8883 (Mosquitto) sont publiés ; API sur 127.0.0.1:3000 ; DB et ML sur le
+  réseau interne "sentinel-back" (internal: true ; ML retiré du réseau front). cap_drop ALL partout
+  (mosquitto +CHOWN/SETUID/SETGID ; db +CHOWN/DAC_OVERRIDE/FOWNER/SETUID/SETGID ; proxy +NET_BIND_SERVICE),
+  no-new-privileges, limites mem/cpu/pids, healthchecks réels (proxy = TLS->API->DB ; ml = broker).
+  Image API : code appartenant à root en lecture seule, uvicorn sans bannière, _old/ et tests exclus.
+- Caddy : HSTS 1 an, CSP stricte sans 'unsafe-inline' (login.html externalisé, repli CDN supprimé),
+  X-Frame-Options DENY, nosniff, Referrer-Policy no-referrer, Permissions-Policy, COOP/CORP,
+  en-tête Server supprimé (Caddy + uvicorn), TLS 1.2/1.3 uniquement, HTTP/2, timeouts anti-slowloris,
+  corps limité à 64 Ko (12 Mo pour l'enrôlement visage), :80 = redirection 308 vers HTTPS.
+- API : /docs /redoc /openapi.json désactivés ; anti brute-force sur l'IP réelle (X-Forwarded-For accepté
+  du seul proxy de confiance) : 5 échecs/15 min => verrouillage 15 min, + 10 req/min ; journal sécurité
+  LOGIN_FAIL / LOGIN_LOCKOUT / LOGIN_BLOCKED / LOGIN_OK / CSRF_BLOCK ; cookie HttpOnly+Secure+SameSite=Strict
+  4 h avec nonce et révocation serveur au logout ; anti-CSRF (Origin/Referer obligatoire si cookie) ;
+  anti-CSWSH sur /ws ; /commands en liste blanche (actions, mélodies, durées 100-60000 ms,
+  device_id ^[A-Za-z0-9_-]{1,32}$ => pas d'injection de topic MQTT, champs inconnus refusés) ;
+  upload visage : multipart obligatoire, 5 photos max, 5 Mo/photo, magic bytes JPEG/PNG/WebP, nom filtré,
+  décodage réel par OpenCV côté vision ; erreurs génériques (ni trace, ni écho des valeurs) ;
+  XSS DOM corrigé (innerHTML -> textContent dans le journal d'événements et la liste MCO).
+- Mosquitto : TLS 1.2 min, anonyme refusé, ACL par utilisateur (déjà minimales : le nœud ne publie que
+  telemetry/alerts/status et ne lit que son topic cmd), client-id vide refusé, max_connections 50,
+  max_packet_size 8 Ko, max_queued_bytes 1 Mo. Certificat / identifiants / firmware NON modifiés.
+- Système (infra/harden-root.sh, à lancer avec sudo) : Samba + Apache désactivés, :80 repris par Caddy
+  (redirection), UFW deny par défaut (22 limité, 443, 80, 8883 depuis hotspot + AP de table),
+  DOCKER-USER : 8883 filtré en IPv4 et coupé en IPv6, sshd clé uniquement renforcé, sysctl complémentaires.
+
+### AVANT (relevé du jour, 09:40)
+### ss -tlnp (avant)
+0.0.0.0:139
+0.0.0.0:22
+0.0.0.0:3002
+0.0.0.0:3100
+0.0.0.0:443
+0.0.0.0:445
+0.0.0.0:8081
+0.0.0.0:8883
+0.0.0.0:9090
+127.0.0.1:3000
+127.0.0.1:39645
+127.0.0.1:5432
+127.0.0.1:631
+127.0.0.1:6463
+127.0.0.1:9277
+127.0.0.53%lo:53
+127.0.0.54:53
+[::]:139
+[::1]:631
+[::]:22
+[::]:3002
+[::]:3100
+[::]:443
+[::]:445
+*:80
+[::]:8883
+[::]:9090
+
+### curl -skI https://localhost/login (avant)
+HTTP/1.1 405 Method Not Allowed
+Allow: GET
+Alt-Svc: clear
+Content-Length: 31
+Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss:; frame-ancestors 'none'
+Content-Type: application/json
+Date: Tue, 06 Oct 2026 07:40:19 GMT
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Strict-Transport-Security: max-age=86400
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+### curl -sI http://127.0.0.1/ (port 80 avant)
+HTTP/1.1 200 OK
+Date: Tue, 06 Oct 2026 07:40:19 GMT
+Server: Apache/2.4.58 (Ubuntu)
+Last-Modified: Thu, 19 Mar 2026 09:11:09 GMT
+### /docs /openapi.json /redoc (avant)
+docs -> 200
+openapi.json -> 200
+redoc -> 200
+### vision 8081 via IP Wi-Fi 172.20.10.4 (avant, sans auth)
+snapshot.jpg -> 200 56138o
+### TLS 1.1 sur 443 (avant)
+4047062A45780000:error:0A0000BF:SSL routines:tls_setup_handshake:no protocols available:../ssl/statem/statem_lib.c:104:
+### rate-limit login (avant) 12 essais faux
+401 401 401 401 401 401 429 429 429 429 429 429
+
+### APRÈS — ports en écoute hors loopback (ss -tln)
+0.0.0.0:139
+0.0.0.0:22
+0.0.0.0:3002
+0.0.0.0:3100
+0.0.0.0:443
+0.0.0.0:445
+0.0.0.0:8883
+0.0.0.0:9090
+[::]:139
+172.22.0.1:8081
+[::]:22
+[::]:3002
+[::]:3100
+[::]:443
+[::]:445
+*:80
+[::]:8883
+[::]:9090
+
+### APRÈS — nmap -sT -sV depuis le portable vers 172.20.10.4 (image docker instrumentisto/nmap)
+# NB : un auto-scan passe par la boucle locale (UFW n'intervient pas) : il prouve les bind, pas le pare-feu.
+# 8081 : fermé (était ouvert sans authentification). Apache (80) et Samba (139/445) disparaissent
+# après 'sudo bash infra/harden-root.sh'. 3002/3100/9090 = healthai (hors périmètre, voir risques).
+PORT     STATE  SERVICE         VERSION
+22/tcp   open   ssh             OpenSSH 9.6p1 Ubuntu 3ubuntu13.19 (Ubuntu Linux; protocol 2.0)
+80/tcp   open   http            Apache httpd 2.4.58 ((Ubuntu))
+139/tcp  open   netbios-ssn     Samba smbd 4
+443/tcp  open   ssl/http        Golang net/http server
+445/tcp  open   netbios-ssn     Samba smbd 4
+1883/tcp closed mqtt
+3000/tcp closed ppp
+3002/tcp open   http            Grafana http
+3100/tcp open   http            Golang net/http server (Go-IPFS json-rpc or InfluxDB API)
+5432/tcp closed postgresql
+8081/tcp closed blackice-icecap
+8883/tcp open   ssl/mqtt
+9090/tcp open   http            Golang net/http server (Go-IPFS json-rpc or InfluxDB API)
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+
+### curl -skI https://localhost/login (après)
+HTTP/2 200 
+accept-ranges: bytes
+alt-svc: clear
+content-security-policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' wss:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+content-type: text/html; charset=utf-8
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-origin
+date: Tue, 06 Oct 2026 07:46:29 GMT
+etag: "efc1a28f3393f3512d32cb6a6616d1ab"
+last-modified: Tue, 06 Oct 2026 07:42:08 GMT
+permissions-policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
+referrer-policy: no-referrer
+strict-transport-security: max-age=31536000
+x-content-type-options: nosniff
+x-frame-options: DENY
+x-permitted-cross-domain-policies: none
+content-length: 865
+
+### Set-Cookie au login (valeur masquée)
+set-cookie: sentinel_session=<masqué>; HttpOnly; Max-Age=14400; Path=/; SameSite=strict; Secure
+
+### Ressources statiques (CSP sans inline)
+/static/login.css -> 200
+/static/login.js -> 200
+/static/app.js -> 200
+/static/vendor/chart.umd.min.js -> 200
+/static/_old/app.js -> 404
+### Limite de taille Caddy : 13 Mo sur /api/v1/faces
+-> 413
+### Limite de taille Caddy : 200 Ko sur /api/v1/auth/login
+-> 413
+### TLS : protocole négocié / TLS 1.0-1.1
+New, TLSv1.3, Cipher is TLS_AES_128_GCM_SHA256
+    Protocol  : TLSv1.3
+    Protocol  : TLSv1.2
+alert protocol version
+### WebSocket /ws avec cookie + Origin légitime
+-> 101
+### WebSocket /ws avec cookie + Origin étranger (CSWSH)
+-> 403
+
+### /docs /openapi.json /redoc (après)
+docs -> 404
+openapi.json -> 404
+redoc -> 404
+### API sans authentification (après)
+GET /api/v1/telemetry -> 401
+GET /api/v1/alerts -> 401
+GET /api/v1/status -> 401
+GET /api/v1/faces -> 401
+GET /api/v1/system -> 401
+GET /cam/snapshot.jpg -> 401
+POST /api/v1/commands sans auth -> 401
+### CSRF : POST /api/v1/commands avec cookie valide mais Origin étranger
+{"detail":"Origine refusée"} -> 403
+### CSRF : même requête sans Origin ni Referer
+{"detail":"Origine refusée"} -> 403
+### Validation /commands (cookie + Origin légitime)
+{"action":"rm -rf"}                             {"detail":"Requête invalide","champs":["action"]} -> 422
+{"action":"buzzer_on","song":"hack"}            {"detail":"Requête invalide","champs":["song"]} -> 422
+{"action":"buzzer_on","duration_ms":999999}     {"detail":"Requête invalide","champs":["duration_ms"]} -> 422
+{"action":"beep","device_id":"#"}               {"detail":"Requête invalide","champs":["device_id"]} -> 422
+{"action":"beep","device_id":"x/../cmd"}        {"detail":"Requête invalide","champs":["device_id"]} -> 422
+{"action":"beep","evil":1}                      {"detail":"Requête invalide","champs":["evil"]} -> 422
+### Corps trop gros (100 Ko sur /commands)
+{"detail":"Requête trop volumineuse"} -> 413
+### Upload visage : faux JPEG (texte renommé)
+{"error": "format refus\u00e9 (JPEG, PNG ou WebP uniquement)"} -> 422
+### Upload visage : nom avec HTML
+ -> 000
+### Upload visage : nom avec HTML
+{"error": "nom invalide (1-40 caract\u00e8res, lettres/chiffres/espace/'-.)"} -> 422
+### Upload visage : vrai JPEG sans visage (passe la validation, refusé par le moteur)
+{"error": "aucun visage d\u00e9tect\u00e9. Photo de face, nette, une personne."} -> 422
+
+### Anti brute-force : 8 mauvais mots de passe depuis une IP de test (10.66.6.6)
+401 401 401 401 401 429 429 429 
+-> même avec le BON mot de passe, l'IP verrouillée reste bloquée :
+bon mdp depuis 10.66.6.6 -> 429
+-> une autre IP n'est pas impactée (pas de DoS du compte opérateur) :
+bon mdp depuis 10.77.7.7 -> 200
+### Journal sécurité (docker logs sentinel-api)
+WARNING:sentinel.security:LOGIN_LOCKOUT ip=10.66.6.6 duration=900s
+WARNING:sentinel.security:LOGIN_BLOCKED ip=10.66.6.6 remaining=899s
+WARNING:sentinel.security:LOGIN_BLOCKED ip=10.66.6.6 remaining=899s
+WARNING:sentinel.security:LOGIN_BLOCKED ip=10.66.6.6 remaining=899s
+WARNING:sentinel.security:LOGIN_BLOCKED ip=10.66.6.6 remaining=899s
+INFO:sentinel.security:LOGIN_OK ip=10.77.7.7 user=operateur
+### Cookie de session
+sentinel_session
+HTTP/1.1 401 Unauthorized
+### Déconnexion = révocation serveur du jeton
+avant logout /auth/me -> 200
+jeton rejoué après logout /auth/me -> 401
+
+### Conteneurs (docker inspect)
+/sentinel-mosquitto User= ReadOnly=false CapDrop=[ALL] CapAdd=[CAP_CHOWN CAP_SETGID CAP_SETUID] SecOpt=[no-new-privileges:true] Mem=134217728 Pids=100 Health=healthy Nets=infra_sentinel-back infra_sentinel-front 
+/sentinel-db User= ReadOnly=false CapDrop=[ALL] CapAdd=[CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_SETGID CAP_SETUID] SecOpt=[no-new-privileges:true] Mem=536870912 Pids=200 Health=healthy Nets=infra_sentinel-back 
+/sentinel-api User=sentinel ReadOnly=true CapDrop=[ALL] CapAdd=[] SecOpt=[no-new-privileges:true] Mem=536870912 Pids=200 Health=healthy Nets=infra_sentinel-back infra_sentinel-front 
+/sentinel-ml User=sentinel ReadOnly=true CapDrop=[ALL] CapAdd=[] SecOpt=[no-new-privileges:true] Mem=805306368 Pids=200 Health=healthy Nets=infra_sentinel-back 
+/sentinel-proxy User= ReadOnly=true CapDrop=[ALL] CapAdd=[CAP_NET_BIND_SERVICE] SecOpt=[no-new-privileges:true] Mem=134217728 Pids=100 Health=healthy Nets=infra_sentinel-front
+
+### Non-régression démo (infra/hardening/check-demo.sh)
+  [OK]   API /health : {"status":"ok","mqtt_connected":true,"database":"ok"}
+  [OK]   login via https://localhost -> 200
+  [OK]   dashboard https://localhost/ (cookie) -> 200
+  [OK]   API /telemetry/latest (cookie) -> 200
+  [OK]   /cam/snapshot.jpg (cookie) -> 200 image/jpeg 60195
+  [OK]   /cam/snapshot.jpg sans cookie -> 401
+  [OK]   MQTT 8883 accepte TLS 1.2
+
+### Tests automatisés
+backend (test_security.py + test_face_gate.py, exécutés dans l'image API) : 21 tests OK
+vision (test_face_api.py + test_face_gallery.py) : 18 tests OK
+
+### Risques résiduels
+- healthai-grafana (3002), healthai-loki (3100), healthai-prometheus (9090) : publiés sur 0.0.0.0 par
+  Docker (contournent UFW). Projet tiers volontairement non modifié : à arrêter avant le pentest
+  (docker stop healthai-grafana healthai-loki healthai-prometheus healthai-promtail) ou rebinder en 127.0.0.1.
+- Apache :80 et Samba 139/445 restent ouverts tant que 'sudo bash infra/harden-root.sh' n'a pas été lancé.
+- Certificat auto-signé (CA locale) : HSTS ignoré par les navigateurs tant que la CA n'est pas importée.
+- Sessions révoquées / verrouillages en mémoire : remis à zéro au redémarrage de l'API.
+- Le flux vision n'a pas d'authentification propre (protégé par le bind + UFW ; accès client via /cam/* authentifié).
+- 22/tcp (SSH clé uniquement, rate-limit UFW) reste exposé au réseau local.
