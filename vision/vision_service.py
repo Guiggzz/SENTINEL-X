@@ -15,7 +15,7 @@ from typing import Any
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-from face_api import enroll_images, parse_multipart_opts
+from face_api import enroll_images, parse_multipart_opts, set_portrait_image
 from face_engine import FaceEngine
 from face_gallery import Gallery
 
@@ -626,11 +626,28 @@ class VisionHandler(BaseHTTPRequestHandler):
                 return
             self._send_bytes(200, thumb.read_bytes(), "image/jpeg")
             return
+        if path.startswith("/faces/") and path.endswith("/portrait"):
+            if not self._bearer_ok():
+                self._send_json(401, {"error": "authentification requise"})
+                return
+            person_id = path[len("/faces/") : -len("/portrait")].strip("/")
+            portrait = WORKER._gallery.portrait_file(person_id)  # noqa: SLF001
+            if portrait is None:
+                self._send_json(404, {"error": "portrait introuvable"})
+                return
+            self._send_bytes(200, portrait.read_bytes(), "image/jpeg")
+            return
         self._send_json(404, {"error": "not found"})
 
     def do_POST(self) -> None:  # noqa: N802
         path = self.path.split("?", 1)[0]
-        if path not in ("/faces", "/faces/"):
+        portrait_for = None
+        if path.startswith("/faces/") and path.endswith("/portrait"):
+            portrait_for = path[len("/faces/") : -len("/portrait")].strip("/")
+            if not portrait_for or "/" in portrait_for:
+                self._send_json(404, {"error": "not found"})
+                return
+        elif path not in ("/faces", "/faces/"):
             self._send_json(404, {"error": "not found"})
             return
         if not self._bearer_ok():
@@ -643,6 +660,10 @@ class VisionHandler(BaseHTTPRequestHandler):
             name, photos, opts = parse_multipart_opts(self.headers.get("Content-Type", ""), body)
         except ValueError as exc:
             self._send_json(400, {"error": str(exc)})
+            return
+        if portrait_for is not None:
+            code, payload = set_portrait_image(WORKER._gallery, WORKER._face_engine, portrait_for, photos)  # noqa: SLF001
+            self._send_json(code, payload)
             return
         single = opts.get("single", "") in ("1", "true", "yes")
         code, payload = enroll_images(WORKER._gallery, WORKER._face_engine, name, photos, single=single)  # noqa: SLF001

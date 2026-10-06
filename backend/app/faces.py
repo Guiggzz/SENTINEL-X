@@ -98,10 +98,18 @@ def _call(method: str, path: str, body: bytes | None, content_type: str | None, 
         return 503, payload, "application/json"
 
 
-async def _proxy(method: str, path: str, body: bytes | None = None, content_type: str | None = None, timeout: float = 8) -> Response:
+async def _proxy(
+    method: str,
+    path: str,
+    body: bytes | None = None,
+    content_type: str | None = None,
+    timeout: float = 8,
+    cache: str = "no-store",
+) -> Response:
     status, data, media = await asyncio.to_thread(_call, method, path, body, content_type, timeout)
     media_type = media.split(";", 1)[0].strip() or "application/json"
-    return Response(content=data, status_code=status, media_type=media_type, headers={"Cache-Control": "no-store"})
+    headers = {"Cache-Control": cache if status == 200 else "no-store"}
+    return Response(content=data, status_code=status, media_type=media_type, headers=headers)
 
 
 @router.get("")
@@ -127,6 +135,37 @@ async def face_thumb(person_id: str) -> Response:
     if not _PERSON_ID.match(person_id):
         return _bad_id()
     return await _proxy("GET", f"/faces/{person_id}/thumb", timeout=4)
+
+
+@router.get("/{person_id}/portrait")
+async def face_portrait(person_id: str) -> Response:
+    """Photo badge 3:4. L'URL porte ?v=<version> côté UI : cache privé possible."""
+    if not _PERSON_ID.match(person_id):
+        return _bad_id()
+    return await _proxy("GET", f"/faces/{person_id}/portrait", timeout=4, cache="private, max-age=86400")
+
+
+@router.post("/{person_id}/portrait")
+async def set_face_portrait(person_id: str, request: HttpRequest) -> Response:
+    """Refait la photo badge depuis une capture (empreintes de reconnaissance inchangées)."""
+    if not _PERSON_ID.match(person_id):
+        return _bad_id()
+    body = await request.body()
+    if len(body) > _MAX_BODY:
+        return Response(
+            content=json.dumps({"error": "photo trop volumineuse"}).encode(),
+            status_code=413,
+            media_type="application/json",
+        )
+    ctype = request.headers.get("content-type", "")
+    err = validate_upload(ctype, body)
+    if err:
+        return Response(
+            content=json.dumps({"error": err}).encode(),
+            status_code=413 if "volumineuse" in err else 422,
+            media_type="application/json",
+        )
+    return await _proxy("POST", f"/faces/{person_id}/portrait", body, ctype, timeout=20)
 
 
 @router.post("")

@@ -50,6 +50,8 @@ def enroll_images(
         return 422, {"error": "nom requis"}
     embeddings = []
     thumbs: list[bytes] = []
+    portrait: bytes | None = None
+    portrait_frontal = False
     for blob in images[:_MAX_PHOTOS]:
         if not blob or len(blob) > _MAX_PHOTO_BYTES:
             continue
@@ -61,10 +63,35 @@ def enroll_images(
             return 422, {"error": f"{faces} visages de taille comparable. Une seule personne au premier plan.", "faces": faces}
         embeddings.append(det.embedding)
         thumbs.append(det.thumb_jpeg or b"")
+        # photo badge : la première photo de face du lot (sinon la première tout court)
+        cand = getattr(det, "portrait_jpeg", None)
+        frontal = bool(getattr(det, "frontal", False))
+        if cand and (portrait is None or (frontal and not portrait_frontal)):
+            portrait, portrait_frontal = cand, frontal
     if not embeddings:
         return 422, {"error": "aucun visage détecté. Photo de face, nette, une personne."}
     try:
-        person = gallery.enroll(name, embeddings, thumbs)
+        person = gallery.enroll(name, embeddings, thumbs, portrait=portrait)
     except ValueError as exc:
         return 422, {"error": str(exc)}
     return 201, person
+
+
+def set_portrait_image(gallery: Gallery, embedder, person_id: str, images: list[bytes]) -> tuple[int, dict]:
+    """Refait la photo badge depuis une image (une seule personne, de face). Empreintes inchangées."""
+    if not getattr(embedder, "ready", False):
+        return 503, {"error": "modèles de reconnaissance absents"}
+    blob = images[0] if images else b""
+    if not blob or len(blob) > _MAX_PHOTO_BYTES:
+        return 422, {"error": "photo manquante"}
+    det = embedder.embed_bytes(blob)
+    if det is None or not getattr(det, "portrait_jpeg", None):
+        return 422, {"error": "aucun visage détecté. Se placer de face, à ~1 m de la caméra."}
+    faces = int(getattr(det, "faces", 1) or 1)
+    if faces > 1:
+        return 422, {"error": f"{faces} visages. Une seule personne au premier plan.", "faces": faces}
+    if not getattr(det, "frontal", True):
+        return 422, {"error": "visage de profil. Regarder la caméra, de face."}
+    if not gallery.set_portrait(person_id, det.portrait_jpeg):
+        return 404, {"error": "personne introuvable"}
+    return 200, {"ok": True}

@@ -574,8 +574,9 @@ button.switch.armed:hover { background: var(--accent); border-color: var(--accen
   min-height: 0;
 }
 .idcard-photo {
-  width: 70px;
-  height: 88px;
+  position: relative;
+  width: 72px;
+  aspect-ratio: 3 / 4;
   padding: 2px;
   border: 1px solid var(--rule-strong);
   background: #fff;
@@ -584,9 +585,23 @@ button.switch.armed:hover { background: var(--accent); border-color: var(--accen
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  background: var(--surface);
-  filter: grayscale(0.15);
+  background: #e4e3de;
+}
+/* portrait 3:4 déjà cadré côté serveur : simple remplissage */
+.idcard-photo.is-portrait img { object-fit: cover; object-position: 50% 40%; }
+/* ancienne vignette serrée : affichée entière, sans recadrage, sur fond neutre */
+.idcard-photo.is-crop img { object-fit: contain; object-position: 50% 30%; padding: 6px 4px 14px; }
+.idcard-photo-note {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  bottom: 3px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 .idcard-info { min-width: 0; }
 .idcard-name {
@@ -620,20 +635,21 @@ button.switch.armed:hover { background: var(--accent); border-color: var(--accen
   padding: 4px 10px 7px;
 }
 .idcard-code {
-  width: 96px;
+  flex: 0 1 80px;
+  min-width: 40px;
   height: 14px;
   opacity: 0.75;
   background:
     repeating-linear-gradient(90deg, #3a3935 0 1px, transparent 1px 3px, #3a3935 3px 5px, transparent 5px 6px, #3a3935 6px 7px, transparent 7px 10px),
     repeating-linear-gradient(90deg, transparent 0 13px, #3a3935 13px 15px, transparent 15px 22px);
 }
-.idcard-actions { display: flex; gap: 2px; }
+.idcard-actions { display: flex; gap: 0; flex-shrink: 0; }
 button.idcard-act {
   border: none;
   background: none;
-  padding: 2px 5px;
+  padding: 2px 4px;
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 400;
   color: var(--muted);
   letter-spacing: 0.02em;

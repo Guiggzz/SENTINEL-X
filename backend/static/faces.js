@@ -171,12 +171,18 @@
     const band = el("div", "idcard-band");
     band.append(el("span", null, "SENTINEL-X"), el("span", null, "Accès autorisé"));
 
-    const photo = el("div", "idcard-photo");
+    // photo badge 3:4 (tête + épaules) si disponible ; sinon première vignette
+    // (recadrage serré du visage) affichée entière, sans zoom supplémentaire.
+    const pid = encodeURIComponent(person.id);
+    const photo = el("div", "idcard-photo " + (person.portrait ? "is-portrait" : "is-crop"));
     const img = document.createElement("img");
-    img.alt = `Photo d'enrôlement de ${name}`;
+    img.alt = `Photo badge de ${name}`;
     img.loading = "lazy";
-    img.src = `/api/v1/faces/${encodeURIComponent(person.id)}/thumb`;
+    img.src = person.portrait
+      ? `/api/v1/faces/${pid}/portrait?v=${person.portrait}`
+      : `/api/v1/faces/${pid}/thumb`;
     photo.appendChild(img);
+    if (!person.portrait) photo.appendChild(el("span", "idcard-photo-note", "à refaire"));
 
     const info = el("div", "idcard-info");
     info.appendChild(el("p", "idcard-name", name));
@@ -214,8 +220,12 @@
       if (r.status === 401) { location.href = "/login"; return; }
       await loadPeople();
     });
+    const shot = el("button", "idcard-act", "Photo badge");
+    shot.type = "button";
+    shot.title = "Refaire la photo du badge depuis la caméra (de face, ~1 m). La reconnaissance n'est pas modifiée.";
+    shot.addEventListener("click", () => retakePortrait(person, name, shot));
     const actions = el("div", "idcard-actions");
-    actions.append(add, del);
+    actions.append(shot, add, del);
     const code = el("span", "idcard-code");
     code.setAttribute("aria-hidden", "true");
     const foot = el("div", "idcard-foot");
@@ -224,6 +234,33 @@
     const tag = el("span", "idcard-present", "Présent");
     li.append(band, body, foot, tag);
     return li;
+  }
+
+  async function retakePortrait(person, name, btn) {
+    const msg = $("faceCaptureMsg");
+    btn.disabled = true;
+    msg.textContent = `${name} · photo badge : capture…`;
+    try {
+      const blob = await fetchFrame(true);
+      if (!blob) { msg.textContent = "Caméra indisponible."; return; }
+      const body = new FormData();
+      body.append("photo", blob, "portrait.jpg");
+      const r = await fetch(`/api/v1/faces/${encodeURIComponent(person.id)}/portrait`, {
+        method: "POST",
+        credentials: "same-origin",
+        body,
+      });
+      if (r.status === 401) { location.href = "/login"; return; }
+      let payload = {};
+      try { payload = await r.json(); } catch { /* réponse vide */ }
+      if (!r.ok) { msg.textContent = payload.error || "Photo badge refusée."; return; }
+      msg.textContent = `${name} · photo badge mise à jour.`;
+      await loadPeople();
+    } catch {
+      msg.textContent = "Échec de la photo badge.";
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   // nom(s) reconnu(s) en direct -> badge surligné

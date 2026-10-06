@@ -93,6 +93,7 @@ class Gallery:
                     "name": meta.get("name") or pid,
                     "samples": int(meta.get("samples") or 0),
                     "created_at": meta.get("created_at"),
+                    "portrait": self._portrait_version(pid),
                 }
             )
         people.sort(key=lambda p: (p.get("created_at") or "", p["name"].casefold()))
@@ -107,7 +108,10 @@ class Gallery:
         embeddings: list[np.ndarray],
         thumbs: list[bytes],
         person_id: str | None = None,
+        portrait: bytes | None = None,
     ) -> dict:
+        """portrait : photo badge (3:4) ; écrite seulement si la personne n'en a pas encore,
+        donc c'est la première capture (de face) qui fait foi."""
         cleaned = _clean_name(name)
         if not embeddings or len(embeddings) != len(thumbs):
             raise ValueError("échantillon visage manquant")
@@ -133,6 +137,8 @@ class Gallery:
                 np.save(folder / f"emb_{idx}.npy", np.asarray(emb, dtype=np.float32).reshape(-1))
                 (folder / f"thumb_{idx}.jpg").write_bytes(thumb)
             meta["samples"] = start + len(embeddings)
+            if portrait and not (folder / "portrait.jpg").is_file():
+                self._write_portrait(folder, portrait)
             data["people"][pid] = meta
             self._write(data)
             return {
@@ -157,16 +163,62 @@ class Gallery:
                 shutil.rmtree(folder)
             return True
 
-    def thumb_file(self, person_id: str) -> Path | None:
+    def _folder(self, person_id: str) -> Path | None:
         pid = _safe_id(person_id)
         if pid is None:
             return None
         folder = (self.root / pid).resolve()
-        root = self.root.resolve()
-        if folder.parent != root or not folder.is_dir():
+        if folder.parent != self.root.resolve() or not folder.is_dir():
             return None
-        thumbs = sorted(folder.glob("thumb_*.jpg"))
-        return thumbs[-1] if thumbs else None
+        return folder
+
+    def thumb_file(self, person_id: str) -> Path | None:
+        """Première vignette chronologique (thumb_0, tri numérique et non lexical)."""
+        folder = self._folder(person_id)
+        if folder is None:
+            return None
+        def index(path: Path) -> int:
+            try:
+                return int(path.stem.split("_", 1)[1])
+            except (IndexError, ValueError):
+                return 1 << 30
+        thumbs = sorted(folder.glob("thumb_*.jpg"), key=index)
+        return thumbs[0] if thumbs else None
+
+    def portrait_file(self, person_id: str) -> Path | None:
+        folder = self._folder(person_id)
+        if folder is None:
+            return None
+        path = folder / "portrait.jpg"
+        return path if path.is_file() else None
+
+    def set_portrait(self, person_id: str, portrait: bytes) -> bool:
+        """Remplace la photo badge seule (ne touche ni empreintes ni vignettes)."""
+        if not portrait:
+            return False
+        with self._lock:
+            data = self._read()
+            pid = _safe_id(person_id)
+            if pid is None or pid not in data["people"]:
+                return False
+            folder = self._folder(pid)
+            if folder is None:
+                return False
+            self._write_portrait(folder, portrait)
+            return True
+
+    def _portrait_version(self, pid: str) -> int:
+        path = self.root / pid / "portrait.jpg"
+        try:
+            return int(path.stat().st_mtime)
+        except OSError:
+            return 0
+
+    @staticmethod
+    def _write_portrait(folder: Path, portrait: bytes) -> None:
+        tmp = folder / "portrait.jpg.tmp"
+        tmp.write_bytes(portrait)
+        os.replace(tmp, folder / "portrait.jpg")
 
     def match(self, embedding: np.ndarray, threshold: float) -> Match:
         rows: list[tuple[str, str, np.ndarray]] = []
