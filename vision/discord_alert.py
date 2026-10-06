@@ -146,26 +146,30 @@ class DiscordAlerter:
         self.cooldown = Cooldown(float(os.environ.get("DISCORD_COOLDOWN_S", "30")))
         self.last_result: dict | None = None
 
-    def alert(self, kind: str, info: dict, now: float | None = None) -> bool:
-        """kind : unknown | spoof. Retourne True si un envoi part (cooldown respecté)."""
+    def alert(self, kind: str, info: dict, now: float | None = None, jpeg: bytes | None = None) -> bool:
+        """kind : unknown | spoof. Retourne True si un envoi part (cooldown respecté).
+
+        jpeg : capture prise à la détection de la personne (début de fenêtre) ; à défaut,
+        trame courante."""
         if not self.enabled:
             return False
         if not self.cooldown.allow(time.monotonic() if now is None else now):
             logger.info("Discord: alerte %s ignorée (cooldown)", kind)
             return False
-        self._send_async(kind, info)
+        self._send_async(kind, info, jpeg)
         return True
 
-    def _send_async(self, kind: str, info: dict) -> None:
+    def _send_async(self, kind: str, info: dict, jpeg: bytes | None = None) -> None:
         info.setdefault("camera", self.camera)
-        threading.Thread(target=self._send, args=(kind, info), name="discord-alert", daemon=True).start()
+        threading.Thread(target=self._send, args=(kind, info, jpeg), name="discord-alert", daemon=True).start()
 
-    def _send(self, kind: str, info: dict) -> None:
-        time.sleep(0.2)  # laisse passer une trame annotée avec l'étiquette du visage courant
-        try:
-            jpeg = self._get_jpeg()
-        except Exception:  # noqa: BLE001
-            jpeg = None
+    def _send(self, kind: str, info: dict, jpeg: bytes | None = None) -> None:
+        if not jpeg:
+            time.sleep(0.2)  # laisse passer une trame annotée avec l'étiquette du visage courant
+            try:
+                jpeg = self._get_jpeg()
+            except Exception:  # noqa: BLE001
+                jpeg = None
         code = post_discord(self.url, kind, info, jpeg, timeout=self.timeout)
         ok = code in (200, 204)
         self.last_result = {"kind": kind, "ok": ok, "status": code, "at": datetime.now(timezone.utc).isoformat()}

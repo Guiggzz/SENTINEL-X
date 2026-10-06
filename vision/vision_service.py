@@ -141,6 +141,7 @@ class CameraWorker:
         self._tracker = LivenessTracker(LIVE_CFG)
         self._live_ms: list[float] = []
         self._discord = DiscordAlerter(self.get_jpeg, camera=DEVICE_ID)
+        self._capture_jpeg: bytes | None = None  # capture prise au début de la fenêtre d'identification
         self._identity = IdentityMachine(IDENT_CFG)
         self._face_pending: str | None = None
         self._face_pending_name: str | None = None
@@ -444,18 +445,26 @@ class CameraWorker:
         for ev in events:
             if ev.kind == "idle":
                 logger.info("Identification : plus personne, retour au repos")
+                self._capture_jpeg = None
                 self._post_alert("identify_end", 0, None)
                 continue
             if ev.kind == "identify_start":
                 logger.info("Identification : personne détectée, « identifiez-vous » (%.0f s)", IDENT_CFG.window_s)
+                # capture dès la détection : envoyée seulement si la personne ne s'identifie pas
+                try:
+                    self._capture_jpeg = self.get_jpeg()
+                except Exception:  # noqa: BLE001
+                    self._capture_jpeg = None
             elif ev.kind == "identified":
                 logger.info("Identification : autorisé %s", ev.name)
+                self._capture_jpeg = None  # identifié : on oublie la capture
             else:
                 logger.warning("Identification : INTRUSION (%s) — non identifié après %.0f s",
                                "leurre" if ev.kind == "intrusion_spoof" else "inconnu", IDENT_CFG.window_s)
                 info = dict(ev.info)
                 info["window_s"] = IDENT_CFG.window_s
-                self._discord.alert("spoof" if ev.kind == "intrusion_spoof" else "unknown", info)
+                jpeg, self._capture_jpeg = getattr(self, "_capture_jpeg", None), None
+                self._discord.alert("spoof" if ev.kind == "intrusion_spoof" else "unknown", info, jpeg=jpeg)
             self._post_alert(ev.kind, self._persons, None)
 
     def _update_face_alerts(self, status: str, name: str | None) -> None:

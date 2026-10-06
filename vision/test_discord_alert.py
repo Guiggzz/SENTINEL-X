@@ -22,11 +22,19 @@ class CooldownTests(unittest.TestCase):
         with mock.patch.dict("os.environ", {"DISCORD_WEBHOOK_URL": "https://discord.example/api/webhooks/1/S"}):
             a = discord_alert.DiscordAlerter(lambda: b"jpeg")
         sent = []
-        a._send_async = lambda k, i: sent.append(k)  # pas de thread ni de réseau
+        a._send_async = lambda k, i, j=None: sent.append(k)  # pas de thread ni de réseau
         self.assertTrue(a.alert("unknown", {}, now=100.0))
         self.assertFalse(a.alert("spoof", {}, now=120.0))
         self.assertTrue(a.alert("spoof", {}, now=131.0))
         self.assertEqual(sent, ["unknown", "spoof"])
+
+    def test_capture_taken_at_detection_is_the_one_sent(self) -> None:
+        with mock.patch.dict("os.environ", {"DISCORD_WEBHOOK_URL": "https://discord.example/api/webhooks/1/S"}):
+            a = discord_alert.DiscordAlerter(lambda: b"frame-at-end")
+        got = []
+        with mock.patch.object(discord_alert, "post_discord", lambda url, k, info, jpeg, timeout=5.0: got.append(jpeg) or 204):
+            a._send("unknown", {}, b"frame-at-detection")
+        self.assertEqual(got, [b"frame-at-detection"])
 
     def test_disabled_without_url(self) -> None:
         with mock.patch.dict("os.environ", {"DISCORD_WEBHOOK_URL": ""}):
