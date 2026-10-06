@@ -26,6 +26,7 @@ from app.database import SessionLocal, get_db, init_db
 from app.models import AlertEvent, DeviceStatus, Telemetry
 from app.mqtt_client import mqtt_bridge
 from app import extras, faces
+from app.face_gate import IDENTITY_STATES
 from app.schemas import (
     AlertIn,
     AlertOut,
@@ -123,7 +124,9 @@ async def store_mqtt_message(topic: str, kind: str, payload: dict[str, Any] | st
             try:
                 t = str(payload.get("type", ""))
                 st = str(payload.get("state", ""))
-                if t in ("presence", "vision") and st.startswith("face_"):
+                if t == "vision" and st in IDENTITY_STATES:
+                    await extras.on_identity_event(str(payload.get("device_id") or topic.split("/")[1]), st)
+                elif t in ("presence", "vision") and st.startswith("face_"):
                     await extras.on_face_event(
                         str(payload.get("device_id") or topic.split("/")[1]),
                         st,
@@ -327,7 +330,9 @@ async def create_alert(
             },
         }
     )
-    if body.type in ("vision", "presence") and (body.state or "").startswith("face_"):
+    if body.type == "vision" and body.state in IDENTITY_STATES:
+        await extras.on_identity_event(body.device_id, body.state)
+    elif body.type in ("vision", "presence") and (body.state or "").startswith("face_"):
         await extras.on_face_event(body.device_id, body.state)
     elif body.type in ("vision", "presence"):
         await extras.on_presence_event(

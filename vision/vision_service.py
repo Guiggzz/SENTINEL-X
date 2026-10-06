@@ -21,6 +21,7 @@ from face_api import enroll_images, parse_multipart_opts, set_portrait_image
 from face_engine import FaceEngine
 from face_gallery import Gallery
 from face_liveness import LivenessConfig, LivenessTracker, aggregate_status, face_verdict
+from identity import AUTHORIZED, IDENTIFYING, INTRUSION, IdentityConfig, IdentityMachine
 
 # Cap CPU threads BEFORE loading torch/ultralytics
 _nt = int(os.environ.get("TORCH_NUM_THREADS", "2"))
@@ -94,6 +95,7 @@ FACE_INTERVAL = float(os.environ.get("SENTINEL_FACE_INTERVAL", "0.30"))
 # Anti-spoofing : trame mesurée = "raw" (avant éclaircissement CLAHE) ou "processed"
 LIVENESS_SOURCE = os.environ.get("SENTINEL_LIVENESS_SOURCE", "raw").strip().lower()
 LIVE_CFG = LivenessConfig.from_env()
+IDENT_CFG = IdentityConfig.from_env()
 # 1 = journalise chaque mesure (score sur trame brute ET éclaircie) pour calibrer sur site
 LIVE_DEBUG = os.environ.get("SENTINEL_LIVENESS_DEBUG", "0") == "1"
 _VISION_DIR = Path(__file__).resolve().parent
@@ -139,6 +141,7 @@ class CameraWorker:
         self._tracker = LivenessTracker(LIVE_CFG)
         self._live_ms: list[float] = []
         self._discord = DiscordAlerter(self.get_jpeg, camera=DEVICE_ID)
+        self._identity = IdentityMachine(IDENT_CFG)
         self._face_pending: str | None = None
         self._face_pending_name: str | None = None
         self._face_since: float | None = None
@@ -157,6 +160,13 @@ class CameraWorker:
         else:
             logger.warning("Reconnaissance visage indisponible : %s", self._face_engine.detail)
         logger.info("Alertes Discord : %s", "actives" if self._discord.enabled else "inactives")
+        logger.info("Identification : %s (fenêtre %.0f s, grâce %.0f s, repos %.0f s)",
+                    "active" if self.identify_on else "inactive", IDENT_CFG.window_s,
+                    IDENT_CFG.auth_grace_s, IDENT_CFG.idle_s)
+
+    @property
+    def identify_on(self) -> bool:
+        return IDENT_CFG.enabled and self._face_engine.ready
 
     def start(self) -> None:
         logger.info("Loading YOLO model %s (CPU)…", MODEL_NAME)
@@ -194,6 +204,8 @@ class CameraWorker:
                 "liveness_ms": round(sum(self._live_ms) / len(self._live_ms), 2) if self._live_ms else None,
                 "face_interval_s": FACE_INTERVAL,
                 "discord_alerts": self._discord.enabled,
+                "identify_enabled": self.identify_on,
+                "identity": self._identity.snapshot(time.monotonic()),
                 "model": MODEL_NAME,
                 "device": "cpu",
                 "uptime_s": round(time.monotonic() - self._started_at, 1),
@@ -302,6 +314,8 @@ class CameraWorker:
             "faces": live.get("faces") or 0,
             "gallery": self._gallery.count(),
             "model": self._face_engine.detail,
+            "identify_enabled": self.identify_on,
+            "identity": self._identity.snapshot(time.monotonic()),
             "liveness": {
                 "ready": self._face_engine.liveness_on,
                 "state": live.get("live_state"),
@@ -378,8 +392,10 @@ class CameraWorker:
                                "liveness": None if liveness is None else round(float(liveness), 3),
                                "live_state": live_state}
             self._face_marks = marks
-        self._update_face_alerts(status, name)
-        self._discord.observe(status, {"similarity": score, "liveness": liveness})
+        if self.identify_on:
+            self._update_identity(status, name, score, liveness)
+        else:
+            self._update_face_alerts(status, name)
 
     @staticmethod
     def _face_label(verdict: str, name: str | None, score: float | None, live: float | None, small: bool) -> str:
@@ -405,8 +421,32 @@ class CameraWorker:
                                "liveness": None, "live_state": None}
             self._face_marks = []
         self._tracker.reset()
-        self._update_face_alerts("none", None)
-        self._discord.observe("none", {})
+        if self.identify_on:
+            with self._lock:
+                self._persons = 0
+            self._update_identity("none", None, None, None)
+        else:
+            self._update_face_alerts("none", None)
+
+    def _update_identity(self, status: str, name: str | None, score: float | None, liveness: float | None) -> None:
+        """Portillon : bip « identifiez-vous », fenêtre, autorisé ou intrusion (+ Discord)."""
+        events = self._identity.update(time.monotonic(), self._persons > 0, status, name, score, liveness)
+        for ev in events:
+            if ev.kind == "idle":
+                logger.info("Identification : plus personne, retour au repos")
+                self._post_alert("identify_end", 0, None)
+                continue
+            if ev.kind == "identify_start":
+                logger.info("Identification : personne détectée, « identifiez-vous » (%.0f s)", IDENT_CFG.window_s)
+            elif ev.kind == "identified":
+                logger.info("Identification : autorisé %s", ev.name)
+            else:
+                logger.warning("Identification : INTRUSION (%s) — non identifié après %.0f s",
+                               "leurre" if ev.kind == "intrusion_spoof" else "inconnu", IDENT_CFG.window_s)
+                info = dict(ev.info)
+                info["window_s"] = IDENT_CFG.window_s
+                self._discord.alert("spoof" if ev.kind == "intrusion_spoof" else "unknown", info)
+            self._post_alert(ev.kind, self._persons, None)
 
     def _update_face_alerts(self, status: str, name: str | None) -> None:
         now = time.monotonic()
@@ -479,6 +519,21 @@ class CameraWorker:
                 y0 = max(th + 4, y - 4)
             cv2.rectangle(out, (x, y0 - th - 4), (x + tw + 4, y0 + 2), color, -1)
             cv2.putText(out, label, (x + 2, y0), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (236, 241, 242), 1, cv2.LINE_AA)
+        ident = self._identity.snapshot(time.monotonic()) if self.identify_on else None
+        if ident and ident["state"] != "idle":
+            if ident["state"] == IDENTIFYING:
+                text, bg = f"IDENTIFIEZ-VOUS  {int(round(ident['remaining_s'] or 0))} s", (70, 68, 64)
+            elif ident["state"] == AUTHORIZED:
+                text, bg = f"AUTORISE : {ident['name'] or '?'}", (74, 125, 47)
+            elif ident["state"] == INTRUSION and ident["kind"] == "spoof":
+                text, bg = "INTRUSION - LEURRE (photo/ecran)", (38, 92, 196)
+            else:
+                text, bg = "INTRUSION - non identifie", (46, 58, 163)
+            text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+            (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1)
+            x0 = (out.shape[1] - tw) // 2 - 10
+            cv2.rectangle(out, (x0, 32), (x0 + tw + 20, 32 + th + 14), bg, -1)
+            cv2.putText(out, text, (x0 + 10, 32 + th + 7), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (236, 241, 242), 1, cv2.LINE_AA)
         banner = f"SENTINEL-X IA  |  {fps:.1f} FPS  |  inference {self._infer_ms:.0f} ms  |  personnes: {persons}"
         cv2.rectangle(out, (0, 0), (out.shape[1], 28), (12, 18, 32), -1)
         cv2.putText(

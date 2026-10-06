@@ -69,7 +69,11 @@
   }
 
   // libellés lisibles pour les événements visage du service vision
-  const STATE_NOTE = { face_spoof: " · leurre photo/écran", face_unknown: " · visage inconnu", face_known: " · visage connu" };
+  const STATE_NOTE = {
+    face_spoof: " · leurre photo/écran", face_unknown: " · visage inconnu", face_known: " · visage connu",
+    identify_start: " · identifiez-vous", identified: " · autorisé", intrusion: " · non identifié",
+    intrusion_spoof: " · leurre photo/écran", identify_end: " · fin de présence",
+  };
   const alertText = (d) => `${d.device_id || "?"} · ${d.type}/${d.state}${STATE_NOTE[d.state] || ""}`;
 
   function addLog(tag, message) {

@@ -41,3 +41,39 @@ def vision_person_suppressed(face_alarm_on: bool, face_ready: bool, source: str,
     if not (source or "").startswith("vision"):
         return False
     return (state or "").lower() in _PERSON_TRIG
+
+
+IDENTITY_STATES = {"identify_start", "identified", "intrusion", "intrusion_spoof", "identify_end"}
+
+
+def identity_action(state: str, face_alarm_on: bool, person_alarm_on: bool) -> str:
+    """Portillon d'identification : identify_beep | confirm | alarm | notify | ignore.
+
+    identify_start -> 2 bips courts « identifiez-vous » ; identified -> bip court + LED verte
+    (et coupe la sirène du portillon) ; intrusion -> sirène seulement si une alarme est armée
+    (alarme visage OU alarme présence du tableau de bord), sinon simple journalisation.
+    """
+    st = (state or "").lower()
+    if st == "identify_start":
+        return "identify_beep"
+    if st == "identified":
+        return "confirm"
+    if st in {"intrusion", "intrusion_spoof"}:
+        return "alarm" if (face_alarm_on or person_alarm_on) else "notify"
+    if st == "identify_end":
+        return "end"
+    return "ignore"
+
+
+def identity_display(state: str, name: str | None = None, window_ms: int = 8000) -> dict | None:
+    """Commande OLED associée (firmware à venir ; un firmware plus ancien l'ignore : « CMD inconnue »)."""
+    st = (state or "").lower()
+    if st == "identify_start":
+        return {"action": "display", "mode": "identify", "duration_ms": int(window_ms)}
+    if st == "identified":
+        return {"action": "display", "mode": "authorized", "name": (name or "")[:24]}
+    if st in {"intrusion", "intrusion_spoof"}:
+        return {"action": "display", "mode": "intrusion"}
+    if st == "identify_end":
+        return {"action": "display", "mode": "normal"}
+    return None

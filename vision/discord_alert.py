@@ -1,4 +1,5 @@
-"""Notification Discord d'intrusion : visage inconnu ou leurre présent >= 2 s.
+"""Notification Discord d'intrusion : personne non identifiée à la fin de la fenêtre
+d'identification (visage inconnu, pas de visage, ou leurre photo/écran).
 
 L'URL du webhook est un secret : lue dans l'environnement (DISCORD_WEBHOOK_URL, fichier
 ~/.config/sentinel/vision.env chargé par l'unité systemd), jamais écrite dans les logs.
@@ -30,59 +31,30 @@ logger = logging.getLogger("sentinel.discord")
 
 ALARM_KINDS = ("unknown", "spoof")
 TITLES = {
-    "unknown": "Intrus détecté",
+    "unknown": "Intrus détecté — non identifié après {window} s",
     "spoof": "Leurre détecté (photo/écran)",
     "test": "Test SENTINEL-X — alerte intrus",
 }
 DESCRIPTIONS = {
-    "unknown": "Visage inconnu présent devant la caméra.",
+    "unknown": "Personne devant la caméra, non identifiée à la fin de la fenêtre d'identification.",
     "spoof": "Visage présenté sur une photo ou un écran (anti-spoofing). Tentative d'usurpation.",
     "test": "Message de test : vérification du webhook d'alerte.",
 }
 COLORS = {"unknown": 0xA33A2E, "spoof": 0xC45C26, "test": 0x6B6A64}
 
 
-class DwellNotifier:
-    """Décide quand alerter : statut d'alarme continu >= dwell_s, puis cooldown_s entre deux.
+class Cooldown:
+    """Au plus une alerte toutes les cooldown_s secondes (anti-spam Discord)."""
 
-    Une alerte par épisode et par type (inconnu puis leurre peut donner deux alertes, cooldown
-    respecté). Un trou de moins de grace_s (visage perdu une passe) ne coupe pas l'épisode.
-    """
-
-    def __init__(
-        self,
-        send: Callable[[str, dict], None],
-        dwell_s: float = 2.0,
-        cooldown_s: float = 30.0,
-        grace_s: float = 1.0,
-    ) -> None:
-        self._send = send
-        self.dwell_s = dwell_s
+    def __init__(self, cooldown_s: float = 30.0) -> None:
         self.cooldown_s = cooldown_s
-        self.grace_s = grace_s
-        self._since: float | None = None
-        self._last_alarm: float | None = None
-        self._sent_kinds: set[str] = set()
-        self._last_sent: float | None = None
+        self._last: float | None = None
 
-    def observe(self, status: str, info: dict, now: float) -> str | None:
-        if status not in ALARM_KINDS:
-            if self._last_alarm is not None and now - self._last_alarm > self.grace_s:
-                self._since = None
-                self._sent_kinds = set()
-            return None
-        if self._since is None or (self._last_alarm is not None and now - self._last_alarm > self.grace_s):
-            self._since = now
-            self._sent_kinds = set()
-        self._last_alarm = now
-        if now - self._since < self.dwell_s or status in self._sent_kinds:
-            return None
-        if self._last_sent is not None and now - self._last_sent < self.cooldown_s:
-            return None
-        self._sent_kinds.add(status)
-        self._last_sent = now
-        self._send(status, dict(info))
-        return status
+    def allow(self, now: float) -> bool:
+        if self._last is not None and now - self._last < self.cooldown_s:
+            return False
+        self._last = now
+        return True
 
 
 def _fmt(value, digits: int = 2) -> str:
@@ -99,7 +71,7 @@ def build_payload(kind: str, info: dict, when: datetime | None = None) -> dict:
         {"name": "Caméra", "value": str(info.get("camera") or "sentinel-cam-01"), "inline": True},
     ]
     embed = {
-        "title": TITLES.get(kind, TITLES["unknown"]),
+        "title": TITLES.get(kind, TITLES["unknown"]).format(window=_fmt(info.get("window_s", 8), 0)),
         "description": DESCRIPTIONS.get(kind, ""),
         "color": COLORS.get(kind, COLORS["unknown"]),
         "fields": fields,
@@ -159,7 +131,7 @@ def post_discord(url: str, kind: str, info: dict, jpeg: bytes | None, timeout: f
 
 
 class DiscordAlerter:
-    """Branche DwellNotifier + envoi en arrière-plan. get_jpeg fournit la trame annotée."""
+    """Envoi en arrière-plan avec cooldown. get_jpeg fournit la trame annotée (cadres)."""
 
     def __init__(self, get_jpeg: Callable[[], bytes | None], camera: str = "sentinel-cam-01") -> None:
         self.url = (os.environ.get("DISCORD_WEBHOOK_URL") or "").strip()
@@ -171,16 +143,18 @@ class DiscordAlerter:
         self.camera = camera
         self.timeout = float(os.environ.get("DISCORD_TIMEOUT_S", "5"))
         self._get_jpeg = get_jpeg
-        self.notifier = DwellNotifier(
-            self._send_async,
-            dwell_s=float(os.environ.get("DISCORD_DWELL_S", "2.0")),
-            cooldown_s=float(os.environ.get("DISCORD_COOLDOWN_S", "30")),
-        )
+        self.cooldown = Cooldown(float(os.environ.get("DISCORD_COOLDOWN_S", "30")))
         self.last_result: dict | None = None
 
-    def observe(self, status: str, info: dict) -> None:
-        if self.enabled:
-            self.notifier.observe(status, info, time.monotonic())
+    def alert(self, kind: str, info: dict, now: float | None = None) -> bool:
+        """kind : unknown | spoof. Retourne True si un envoi part (cooldown respecté)."""
+        if not self.enabled:
+            return False
+        if not self.cooldown.allow(time.monotonic() if now is None else now):
+            logger.info("Discord: alerte %s ignorée (cooldown)", kind)
+            return False
+        self._send_async(kind, info)
+        return True
 
     def _send_async(self, kind: str, info: dict) -> None:
         info.setdefault("camera", self.camera)

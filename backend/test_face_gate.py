@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from app.face_gate import face_alarm_action, vision_camera_gated, vision_person_suppressed
+from app.face_gate import IDENTITY_STATES, face_alarm_action, identity_action, identity_display, vision_camera_gated, vision_person_suppressed
 
 
 class FaceGateTests(unittest.TestCase):
@@ -45,6 +45,30 @@ class FaceGateTests(unittest.TestCase):
         self.assertTrue(vision_camera_gated(True, True, "vision", "person_cleared"))
         self.assertFalse(vision_camera_gated(True, True, "pir", "cleared"))
         self.assertFalse(vision_camera_gated(False, True, "vision", "person_detected"))
+
+
+class IdentityGateTests(unittest.TestCase):
+    def test_identify_start_beeps_even_when_disarmed(self) -> None:
+        self.assertEqual(identity_action("identify_start", False, False), "identify_beep")
+
+    def test_identified_confirms(self) -> None:
+        self.assertEqual(identity_action("identified", True, False), "confirm")
+
+    def test_intrusion_rings_if_face_or_person_alarm_armed(self) -> None:
+        self.assertEqual(identity_action("intrusion", True, False), "alarm")
+        self.assertEqual(identity_action("intrusion_spoof", False, True), "alarm")
+        self.assertEqual(identity_action("intrusion", False, False), "notify")
+
+    def test_identity_states(self) -> None:
+        self.assertEqual(IDENTITY_STATES, {"identify_start", "identified", "intrusion", "intrusion_spoof", "identify_end"})
+        self.assertEqual(identity_action("face_unknown", True, True), "ignore")
+
+    def test_display_commands(self) -> None:
+        self.assertEqual(identity_display("identify_start", None, 8000),
+                         {"action": "display", "mode": "identify", "duration_ms": 8000})
+        self.assertEqual(identity_display("identified", "Guillaume")["name"], "Guillaume")
+        self.assertEqual(identity_display("intrusion_spoof")["mode"], "intrusion")
+        self.assertEqual(identity_display("identify_end")["mode"], "normal")
 
 
 if __name__ == "__main__":

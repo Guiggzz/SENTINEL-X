@@ -89,6 +89,36 @@
       score.textContent = `seuil ${s.threshold != null ? Number(s.threshold).toFixed(2) : "—"} · galerie ${s.gallery ?? 0}`;
     }
     renderLiveness(ready ? s : null);
+    renderIdentity(ready ? s : null, line);
+  }
+
+  // Portillon d'identification : Identifiez-vous (compte à rebours) / Autorisé / Intrusion
+  function renderIdentity(s, line) {
+    const el = $("faceIdentity");
+    const id = s && s.identify_enabled ? s.identity : null;
+    let text = "";
+    let cls = "face-identity";
+    if (id && id.state === "identifying") {
+      text = `Identifiez-vous… ${Math.max(0, Math.ceil(Number(id.remaining_s) || 0))} s`;
+      cls += " identifying";
+    } else if (id && id.state === "authorized") {
+      text = `Autorisé : ${id.name || "?"}`;
+      cls += " authorized";
+    } else if (id && id.state === "intrusion") {
+      text = id.kind === "spoof" ? "Intrusion · leurre (photo/écran)" : `Intrusion · non identifié après ${Number(id.window_s) || 8} s`;
+      cls += " intrusion";
+    } else if (id) {
+      text = "Portillon · en attente";
+    }
+    if (el) {
+      el.textContent = text;
+      el.className = cls;
+      el.hidden = !id;
+    }
+    if (line && id && id.state !== "idle") {
+      line.textContent = `Portillon · ${text}`;
+      line.className = "mco-sub" + (id.state === "intrusion" ? " alarm" : "");
+    }
   }
 
   // Anti-spoofing : Vivant / Leurre / Vérification + score lissé

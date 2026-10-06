@@ -174,8 +174,9 @@
       Visage inconnu : sirène « intrus » et LED rouge, seulement si l'alarme est armée.
       Tant que les modèles sont chargés, cette alarme remplace l'alarme personne de la caméra
       (le PIR reste indépendant). Seuil cosinus par défaut 0,36 — démo d'atelier, pas une biométrie de production.
-      Anti-spoofing : un visage n'est « connu » qu'après preuve de vivacité ; une photo ou un écran est classé
-      « leurre » et traité comme une intrusion.
+      Portillon : une personne détectée déclenche deux bips « identifiez-vous » ; sans visage connu et vivant
+      en 8 s (inconnu, pas de visage, photo ou écran = « leurre »), c'est une intrusion : sirène si une alarme
+      est armée, et alerte Discord avec l'image.
     </p>
     <div class="faces-grid">
       <article class="panel">
@@ -185,6 +186,7 @@
           <span id="faceAlarmState" class="toggle-state">—</span>
           <button id="faceAlarmToggle" class="switch" aria-pressed="false" aria-label="Armer ou désarmer l'alarme visage inconnu"><i></i></button>
         </div>
+        <p id="faceIdentity" class="face-identity" hidden></p>
         <p id="faceLive" class="face-status">—</p>
         <p id="faceScore" class="mco-sub">—</p>
         <p id="faceLiveness" class="face-liveness"></p>

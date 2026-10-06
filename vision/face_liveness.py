@@ -44,11 +44,11 @@ def _env_float(name: str, default: float) -> float:
 @dataclass(frozen=True)
 class LivenessConfig:
     enabled: bool = True
-    live_threshold: float = 0.70   # moyenne lissée >= seuil -> vivant
+    live_threshold: float = 0.60   # moyenne lissée >= seuil -> vivant
     spoof_threshold: float = 0.30  # moyenne lissée <= seuil -> leurre
     alpha: float = 0.40            # poids de la nouvelle mesure (EMA)
-    min_obs: int = 3               # mesures minimales avant toute décision
-    min_face: int = 56             # largeur YuNet mini (px) pour mesurer ; sinon « vérification »
+    min_obs: int = 2               # mesures minimales avant toute décision
+    min_face: int = 48             # largeur YuNet mini (px) pour mesurer ; sinon « vérification »
     every: int = 1                 # mesure toutes les N passes visage par piste
     enroll_threshold: float = 0.60  # une seule image à l'enrôlement
     track_ttl: float = 1.5         # piste oubliée après N s sans visage

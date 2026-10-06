@@ -416,27 +416,37 @@ Méthode (vision/face_liveness.py, CPU, OpenCV DNN) :
 - Découpe identique au dépôt d'origine (CropImage._get_new_box). La boîte YuNet est convertie
   en boîte « type RetinaFace » (détecteur d'entraînement) : largeur x1,13, hauteur x0,92, centre
   -> +5 % (calibré sur nos trames). Mesure sur la trame caméra brute (avant CLAHE).
-- Seulement sur les visages détectés de largeur >= 56 px ; ~4 ms par visage ; FPS inchangé
+- Seulement sur les visages détectés de largeur >= 48 px ; ~4 ms par visage ; FPS inchangé
   (~9,2-9,6 FPS, YOLO ~36 ms, CPU ~177 % avant/après).
 - Lissage temporel par piste (suivi IoU) : moyenne exponentielle alpha 0,4, au moins 3 mesures
   (passe visage toutes les 0,30 s), hystérésis entre les seuils.
 
+Portillon d'identification (vision/identity.py, machine d'états testée avec horloge factice) :
+- repos -> personne (YOLO ou visage) -> 2 bips courts « identifiez-vous » (action beep existante,
+  sans reflash), écran OLED « identify » si le firmware le gère, fenêtre de 8 s ;
+- visage connu ET vivant stable 0,5 s -> « Autorisé : <nom> » (bip court + LED verte), maintenu tant
+  que la personne est visible + 10 s de grâce ;
+- fenêtre expirée (inconnu, aucun visage, leurre) -> vision/intrusion (ou intrusion_spoof) : sirène
+  « intrus » + LED rouge si l'alarme visage OU l'alarme présence est armée ; alerte Discord avec
+  l'image annotée dans tous les cas (cooldown 30 s ; URL du webhook hors git, fichier 600) ;
+- plus personne depuis 5 s -> repos (identify_end) ; pas de nouveau bip pour une présence continue.
+  Durées réglables (SENTINEL_IDENTIFY_*).
+
 Décision et seuils (variables d'environnement SENTINEL_LIVENESS_*) :
-- connu + vivant (moyenne >= 0,70) -> « Guillaume », pas d'alarme ;
-- moyenne <= 0,30 -> « LEURRE » : événement vision/face_spoof, sirène intrus si l'alarme visage
-  est armée, notification Discord (après 2 s, cooldown 30 s) ;
-- entre les deux, < 3 mesures ou visage trop petit -> « Vérification… » : ni connu ni alarme ;
+- connu + vivant (moyenne >= 0,60, au moins 2 mesures) -> « connu » ;
+- moyenne <= 0,30 -> « LEURRE » ;
+- entre les deux, < 2 mesures ou visage < 48 px -> « Vérification… » (jamais « connu ») ;
 - enrôlement : capture/photo avec score < 0,60 refusée (422 « image non vivante (photo/écran ?) ») ;
   les empreintes déjà enrôlées n'ont pas été modifiées.
 
 Constats sur site (webcam UGREEN 440p) : vrais visages médiane 0,97-1,00 par piste ; visage
 très proche (> 130 px) : creux ponctuels jusqu'à 0,33, moyenne lissée minimale 0,44 (d'où le seuil
-leurre à 0,30). Échantillons « faux » du dépôt d'origine : 0,03 et 0,09 (rejetés), vrai : 0,99.
+leurre à 0,30 et le seuil vivant abaissé à 0,60 pour ne pas bloquer les personnes enrôlées). Échantillons « faux » du dépôt d'origine : 0,03 et 0,09 (rejetés), vrai : 0,99.
 
-Tests : vision 56 OK (33 nouveaux : découpe, lissage, décisions, enrôlement, Discord 2 s/30 s),
-backend 22 OK (face_spoof -> alarme) ; check-demo.sh tout OK.
+Tests : vision 66 OK (découpe, lissage, décisions, enrôlement, portillon, Discord cooldown),
+backend 27 OK (face_spoof, portillon, commandes OLED) ; check-demo.sh tout OK.
 
 Limites : modèle 2D passif. Masques 3D, vidéo haute qualité sur grand écran sans bord visible,
-ou impression photo grand format bien éclairée : non garantis. Visages < 56 px (loin) : pas de
+ou impression photo grand format bien éclairée : non garantis. Visages < 48 px (loin) : pas de
 mesure, donc jamais « connu » (vérification). Test réel à faire : photo sur téléphone et photo
 imprimée d'une personne enrôlée devant la webcam.

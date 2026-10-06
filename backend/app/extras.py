@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import SessionLocal, get_db
-from app.face_gate import face_alarm_action, vision_camera_gated
+from app.face_gate import face_alarm_action, identity_action, identity_display, vision_camera_gated
 from app.models import AlertEvent, AppSetting, DeviceStatus
 from app.mqtt_client import mqtt_bridge
 
@@ -255,7 +255,12 @@ async def put_face_alarm(body: PersonAlarmIn, db: AsyncSession = Depends(get_db)
     await _log_alert("sentinel-api", "reglage", "alarme_visage_armee" if body.enabled else "alarme_visage_desarmee")
     if body.enabled:
         health = await asyncio.to_thread(_vision_health)
-        if health.get("face_ready") and health.get("face_status") in ("unknown", "spoof"):
+        if health.get("identify_enabled"):
+            try:  # portillon d'identification : la sirène viendra de « intrusion » si besoin
+                _cmd({"action": "beep", "duration_ms": 400})
+            except Exception:
+                logger.warning("bip visage impossible (MQTT)")
+        elif health.get("face_ready") and health.get("face_status") in ("unknown", "spoof"):
             await on_face_event(settings.default_device_id, "face_" + health["face_status"])
         else:
             try:
@@ -328,9 +333,12 @@ async def on_presence_event(device_id: str, state: str, source: str = "vision") 
     # Portillon visage armé et modèles prêts : la caméra ne sonne plus sur une simple personne,
     # et person_cleared ne coupe pas la sirène (c'est face_cleared / face_known qui s'en charge).
     if (source or "").startswith("vision"):
+        health = await asyncio.to_thread(_vision_health)
+        if health.get("identify_enabled") and st in (_TRIG | _CLEAR):
+            return  # portillon d'identification actif : la caméra sonne via « intrusion », pas sur une personne
         async with SessionLocal() as s:
             face_on, _ = await _face_enabled(s)
-        ready = bool((await asyncio.to_thread(_vision_health)).get("face_ready")) if face_on else False
+        ready = bool(health.get("face_ready")) if face_on else False
         if vision_camera_gated(face_on, ready, source, st):
             return
     if st in _TRIG:
@@ -370,6 +378,90 @@ async def on_presence_event(device_id: str, state: str, source: str = "vision") 
 
 async def on_vision_alert(device_id: str, state: str) -> None:
     await on_presence_event(device_id, state, source="vision")
+
+
+IDENTIFY_BEEP_MS = int(os.getenv("IDENTIFY_BEEP_MS", "110"))
+IDENTIFY_BEEP_GAP_S = float(os.getenv("IDENTIFY_BEEP_GAP_S", "0.18"))
+CONFIRM_LED_S = float(os.getenv("IDENTIFY_CONFIRM_LED_S", "2.0"))
+
+
+async def _identify_beeps() -> None:
+    """Deux bips courts « identifiez-vous » (action beep existante du firmware, pas de reflash)."""
+    try:
+        _cmd({"action": "beep", "duration_ms": IDENTIFY_BEEP_MS})
+        await asyncio.sleep(IDENTIFY_BEEP_MS / 1000 + IDENTIFY_BEEP_GAP_S)
+        _cmd({"action": "beep", "duration_ms": IDENTIFY_BEEP_MS})
+    except Exception:
+        logger.warning("bips identification impossibles (MQTT)")
+
+
+async def _confirm_signal() -> None:
+    """Autorisé : bip très court + LED verte brève, puis LED en mode auto."""
+    try:
+        _cmd({"action": "beep", "duration_ms": 60})
+        _cmd({"action": "led", "color": "green", "state": True})
+        await asyncio.sleep(CONFIRM_LED_S)
+        _cmd({"action": "led", "color": "green", "state": False})
+        _cmd({"action": "led_auto"})
+    except Exception:
+        logger.warning("confirmation identification impossible (MQTT)")
+
+
+async def on_identity_event(device_id: str, state: str) -> None:
+    """Portillon d'identification (service vision) : bips, autorisation, intrusion."""
+    global _intrus_until, _face_siren
+    async with SessionLocal() as s:
+        face_on, _ = await _face_enabled(s)
+        person_on, _ = await _person_enabled(s)
+    action = identity_action(state, face_on, person_on)
+    if action == "ignore":
+        return
+    name = None
+    window_ms = 8000
+    if state == "identified" or state == "identify_start":
+        ident = (await asyncio.to_thread(_vision_health)).get("identity") or {}
+        name = ident.get("name")
+        try:
+            window_ms = int(float(ident.get("window_s") or 8) * 1000)
+        except (TypeError, ValueError):
+            pass
+    disp = identity_display(state, name, window_ms)
+    if disp:
+        try:  # écran OLED : facultatif, ne doit jamais casser le portillon
+            _cmd(disp)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("commande display ignorée: %s", exc)
+    if action == "end":
+        return
+    if action == "identify_beep":
+        if time.time() >= _intrus_until:  # pas de bips par-dessus une sirène en cours
+            asyncio.create_task(_identify_beeps())
+        return
+    if action == "confirm":
+        if _face_siren and time.time() < _intrus_until and not gas_alarm_active():
+            try:
+                _cmd({"action": "buzzer_off"})
+            except Exception:
+                logger.exception("buzzer_off identification impossible")
+            _intrus_until = 0.0
+            _face_siren = False
+            await _log_alert(device_id, "intrusion", "alarme_arretee_identifie", {"source": "identification"})
+        asyncio.create_task(_confirm_signal())
+        return
+    if action == "alarm":
+        if gas_alarm_active():
+            await _log_alert(device_id, "intrusion", "detectee_pendant_alarme_gaz", {"source": "identification"})
+            return
+        if time.time() < _intrus_until:
+            return
+        try:
+            _cmd({"action": "buzzer_on", "duration_ms": INTRUS_MS, "song": "intrus"})
+            _intrus_until = time.time() + INTRUS_MS / 1000
+            _face_siren = True
+        except Exception:
+            logger.exception("commande intrus identification impossible")
+        await _log_alert(device_id, "intrusion", "alarme_declenchee",
+                         {"song": "intrus", "duration_ms": INTRUS_MS, "source": "identification", "state": state})
 
 
 async def on_face_event(device_id: str, state: str) -> None:
