@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SENTINEL-X · EPSI Workshop</title>
-  <link rel="stylesheet" href="/static/style.css?v=14" />
+  <link rel="stylesheet" href="/static/style.css?v=15" />
   <script src="/static/vendor/chart.umd.min.js"></script>
 </head>
 <body>
@@ -26,12 +26,15 @@
     <span id="alarmDetail" class="alarm-detail"></span>
   </div>
 
-  <nav class="tabs" aria-label="Sections">
-    <button type="button" class="tab is-on" data-tab="ops" aria-selected="true">Supervision</button>
-    <button type="button" class="tab" data-tab="faces" aria-selected="false">Visages</button>
+  <nav class="tabs" aria-label="Sections" role="tablist">
+    <button type="button" class="tab is-on" data-tab="ops" role="tab" aria-selected="true" aria-controls="tab-ops">Supervision</button>
+    <button type="button" class="tab" data-tab="cam" role="tab" aria-selected="false" aria-controls="tab-cam">Caméra</button>
+    <button type="button" class="tab" data-tab="log" role="tab" aria-selected="false" aria-controls="tab-log">Journal</button>
+    <button type="button" class="tab" data-tab="faces" role="tab" aria-selected="false" aria-controls="tab-faces">Visages</button>
+    <button type="button" class="tab" data-tab="settings" role="tab" aria-selected="false" aria-controls="tab-settings">Réglages</button>
   </nav>
 
-  <main class="layout" id="tab-ops">
+  <main class="layout tab-page" id="tab-ops">
     <section class="status-strip">
       <div class="stat">
         <span class="label">Nœud</span>
@@ -56,6 +59,10 @@
       <div class="stat">
         <span class="label">Wi-Fi RSSI</span>
         <p id="stRssi" class="value muted">—</p>
+      </div>
+      <div class="stat arm">
+        <span class="label">Alarmes armées</span>
+        <p id="stArmed" class="value muted">—</p>
       </div>
       <div class="stat wide">
         <span class="label">Dernière mise à jour</span>
@@ -120,60 +127,27 @@
         <ul id="mcoServices" class="mco-services"></ul>
       </article>
     </section>
-
-    <section class="bottom">
-      <article class="panel controls">
-        <h2>Panneau de contrôle</h2>
-                <div class="toggle-row">
-          <span class="toggle-label">Alarme présence <span class="h-note">sources cochées → sirène « intrus »</span></span>
-          <span id="personState" class="toggle-state">—</span>
-          <button id="personToggle" class="switch" aria-pressed="false" aria-label="Armer / désarmer l'alarme présence"><i></i></button>
-        </div>
-        <div class="toggle-row">
-          <span class="toggle-label">Alarme reconnaissance <span class="h-note">non identifié après le bip → sirène « intrus »</span></span>
-          <span id="faceAlarmState2" class="toggle-state">—</span>
-          <button id="faceAlarmToggle2" class="switch" aria-pressed="false" aria-label="Armer ou désarmer l'alarme reconnaissance"><i></i></button>
-        </div>
-        <div class="sources" id="alarmSources">
-          <span class="sources-title">Sources d'alarme</span>
-          <label class="src"><input type="checkbox" data-src="pir" checked /> PIR (présence)</label>
-          <label class="src"><input type="checkbox" data-src="vision" checked /> Caméra (YOLO)</label>
-          <label class="src"><input type="checkbox" data-src="gaz_ia" checked /> IA gaz / fumée</label>
-          <label class="src"><input type="checkbox" data-src="thermique_ia" checked /> IA thermique</label>
-        </div>
-<div class="btn-grid">
-          <button data-cmd='{"action":"beep"}'>Bip</button>
-          <button data-cmd='{"action":"buzzer_on","duration_ms":30000,"song":"paquetta"}' class="warn">Alarme Paquetta (30 s)</button>
-          <button data-cmd='{"action":"buzzer_on","duration_ms":20000,"song":"rickroll"}' class="warn">Alarme Rickroll (20 s)</button>
-          <button data-cmd='{"action":"buzzer_on","duration_ms":10000,"song":"gaz"}' class="warn">Test sirène gaz (10 s)</button>
-          <button data-cmd='{"action":"buzzer_on","duration_ms":10000,"song":"intrus"}' class="warn">Test sirène intrus (10 s)</button>
-          <button data-cmd='{"action":"buzzer_off"}' class="stop">Couper alarme</button>
-          <button data-cmd='{"action":"led","color":"red","state":true}' class="red">LED rouge ON</button>
-          <button data-cmd='{"action":"led","color":"red","state":false}' class="red">LED rouge OFF</button>
-          <button data-cmd='{"action":"led","color":"green","state":true}' class="green">LED verte ON</button>
-          <button data-cmd='{"action":"led","color":"green","state":false}' class="green">LED verte OFF</button>
-          <button data-cmd='{"action":"led_auto"}'>LEDs auto</button>
-        </div>
-        <p id="cmdFeedback" class="feedback"></p>
-      </article>
-
-      <article class="panel camera">
-        <h2>Caméra</h2>
-        <div class="cam-wrap">
-          <img id="camFeed" alt="Flux caméra indisponible" width="782" height="440" />
-          <div id="camFallback" class="cam-fallback">Flux indisponible</div>
-        </div>
-        <p class="hint">Flux MJPEG · <code>/cam/snapshot.jpg (≈5 FPS)</code> · surcharge via <code>?cam=</code></p>
-      </article>
-
-      <article class="panel log">
-        <h2>Journal d'événements</h2>
-        <ul id="eventLog"></ul>
-      </article>
-    </section>
   </main>
 
-  <section id="tab-faces" class="layout faces-page" hidden>
+  <section id="tab-cam" class="layout tab-page cam-page" hidden>
+    <article class="panel camera">
+      <h2>Caméra <span class="h-note">rafraîchie seulement quand cet onglet est affiché</span></h2>
+      <div class="cam-wrap">
+        <img id="camFeed" alt="Flux caméra indisponible" width="782" height="440" />
+        <div id="camFallback" class="cam-fallback">Flux en pause</div>
+      </div>
+      <p class="hint">Trames JPEG · <code>/cam/snapshot.jpg</code> (≈4 FPS) · surcharge via <code>?cam=</code></p>
+    </article>
+  </section>
+
+  <section id="tab-log" class="layout tab-page log-page" hidden>
+    <article class="panel log">
+      <h2>Journal d'événements <span class="h-note">alertes, statut du nœud, commandes · 200 dernières entrées</span></h2>
+      <ul id="eventLog"></ul>
+    </article>
+  </section>
+
+  <section id="tab-faces" class="layout tab-page faces-page" hidden>
     <p class="face-help">
       Photos nettes, visage de face, une personne par image. Visage connu : pas de sirène.
       Visage inconnu : sirène « intrus » et LED rouge, seulement si l'alarme est armée.
@@ -223,11 +197,53 @@
     </div>
   </section>
 
+  <section id="tab-settings" class="layout tab-page settings-page" hidden>
+    <div class="settings-grid">
+      <article class="panel controls">
+        <h2>Armement</h2>
+        <div class="toggle-row">
+          <span class="toggle-label">Alarme présence <span class="h-note">sources cochées → sirène « intrus »</span></span>
+          <span id="personState" class="toggle-state">—</span>
+          <button id="personToggle" class="switch" aria-pressed="false" aria-label="Armer / désarmer l'alarme présence"><i></i></button>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label">Alarme reconnaissance <span class="h-note">non identifié après le bip → sirène « intrus »</span></span>
+          <span id="faceAlarmState2" class="toggle-state">—</span>
+          <button id="faceAlarmToggle2" class="switch" aria-pressed="false" aria-label="Armer ou désarmer l'alarme reconnaissance"><i></i></button>
+        </div>
+        <div class="sources" id="alarmSources">
+          <span class="sources-title">Sources d'alarme</span>
+          <label class="src"><input type="checkbox" data-src="pir" checked /> PIR (présence)</label>
+          <label class="src"><input type="checkbox" data-src="vision" checked /> Caméra (YOLO)</label>
+          <label class="src"><input type="checkbox" data-src="gaz_ia" checked /> IA gaz / fumée</label>
+          <label class="src"><input type="checkbox" data-src="thermique_ia" checked /> IA thermique</label>
+        </div>
+      </article>
+      <article class="panel">
+        <h2>Commandes du nœud</h2>
+        <div class="btn-grid">
+          <button data-cmd='{"action":"beep"}'>Bip</button>
+          <button data-cmd='{"action":"buzzer_on","duration_ms":30000,"song":"paquetta"}' class="warn">Alarme Paquetta (30 s)</button>
+          <button data-cmd='{"action":"buzzer_on","duration_ms":20000,"song":"rickroll"}' class="warn">Alarme Rickroll (20 s)</button>
+          <button data-cmd='{"action":"buzzer_on","duration_ms":10000,"song":"gaz"}' class="warn">Test sirène gaz (10 s)</button>
+          <button data-cmd='{"action":"buzzer_on","duration_ms":10000,"song":"intrus"}' class="warn">Test sirène intrus (10 s)</button>
+          <button data-cmd='{"action":"buzzer_off"}' class="stop">Couper alarme</button>
+          <button data-cmd='{"action":"led","color":"red","state":true}' class="red">LED rouge ON</button>
+          <button data-cmd='{"action":"led","color":"red","state":false}' class="red">LED rouge OFF</button>
+          <button data-cmd='{"action":"led","color":"green","state":true}' class="green">LED verte ON</button>
+          <button data-cmd='{"action":"led","color":"green","state":false}' class="green">LED verte OFF</button>
+          <button data-cmd='{"action":"led_auto"}'>LEDs auto</button>
+        </div>
+        <p id="cmdFeedback" class="feedback"></p>
+      </article>
+    </div>
+  </section>
+
   <footer>
     EPSI Workshop · SENTINEL-X · MQTT / WebSocket
   </footer>
-  <script src="/static/app.js?v=13"></script>
-  <script src="/static/ai.js?v=13"></script>
-  <script src="/static/faces.js?v=15"></script>
+  <script src="/static/app.js?v=14"></script>
+  <script src="/static/ai.js?v=14"></script>
+  <script src="/static/faces.js?v=16"></script>
 </body>
 </html>

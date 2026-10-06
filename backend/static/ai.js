@@ -111,6 +111,18 @@
     render();
   }
 
+  // ---------------------------------------------------------------- indicateur Supervision (lecture seule)
+  // les interrupteurs sont dans l'onglet Réglages ; la Supervision garde un résumé de l'armement
+  const armed = { person: null, face: null };
+  function renderArmed() {
+    const node = $("stArmed");
+    if (!node || (armed.person == null && armed.face == null)) return;
+    const on = [armed.person && "présence", armed.face && "visage"].filter(Boolean);
+    node.textContent = on.length ? on.join(" + ") : "aucune";
+    node.className = "value " + (on.length ? "warn" : "muted");
+  }
+  window.setArmedIndicator = (kind, enabled) => { armed[kind] = !!enabled; renderArmed(); };
+
   // ---------------------------------------------------------------- alarme présence
   const toggle = $("personToggle");
   function applyPerson(enabled) {
@@ -118,6 +130,7 @@
     toggle.classList.toggle("armed", !!enabled);
     $("personState").textContent = enabled ? "ARMÉE" : "DÉSARMÉE";
     $("personState").className = "toggle-state" + (enabled ? " armed" : "");
+    window.setArmedIndicator("person", enabled);
   }
   async function loadPerson() {
     const r = await fetch("/api/v1/settings/person-alarm", { credentials: "same-origin" });
@@ -244,6 +257,8 @@
     ws.onclose = () => setTimeout(connect, 2000);
     ws.onerror = () => ws.close();
   }
+
+  window.addEventListener("sentinel:tab", (ev) => { if (ev.detail === "ops") spark.resize(); });
 
   loadAi(); loadPerson(); pollVision(); pollSystem(); connect();
   setInterval(render, 2000);

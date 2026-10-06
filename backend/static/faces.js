@@ -2,20 +2,11 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
-  document.querySelectorAll(".tab").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const name = btn.getAttribute("data-tab");
-      document.querySelectorAll(".tab").forEach((other) => {
-        const on = other === btn;
-        other.classList.toggle("is-on", on);
-        other.setAttribute("aria-selected", on ? "true" : "false");
-      });
-      $("tab-ops").hidden = name !== "ops";
-      $("tab-faces").hidden = name !== "faces";
-      if (name === "faces") loadPeople();
-      setCamLive(name === "faces");
-      window.dispatchEvent(new Event("resize"));
-    });
+  // bascule d'onglet gérée par app.js (événement "sentinel:tab")
+  window.addEventListener("sentinel:tab", (ev) => {
+    const on = ev.detail === "faces";
+    if (on) loadPeople();
+    setCamLive(on);
   });
 
   const toggles = [["faceAlarmToggle", "faceAlarmState"], ["faceAlarmToggle2", "faceAlarmState2"]]
@@ -27,6 +18,7 @@
       st.textContent = enabled ? "ARMÉE" : "DÉSARMÉE";
       st.className = "toggle-state" + (enabled ? " armed" : "");
     });
+    if (window.setArmedIndicator) window.setArmedIndicator("face", enabled);
   }
   window.applyFaceAlarm = applyFaceAlarm;
 
@@ -176,23 +168,29 @@
     return li;
   }
 
+  // jeton de séquence : deux chargements concurrents (démarrage + ouverture de l'onglet)
+  // ne doivent pas dupliquer les badges
+  let peopleSeq = 0;
   async function loadPeople() {
+    const seq = ++peopleSeq;
     const list = $("faceList");
-    list.replaceChildren();
     let people = [];
     try {
       const r = await fetch("/api/v1/faces", { credentials: "same-origin", cache: "no-store" });
+      if (seq !== peopleSeq) return;
       if (r.status === 401) { location.href = "/login"; return; }
       if (!r.ok) {
-        list.appendChild(emptyItem("Galerie injoignable."));
+        list.replaceChildren(emptyItem("Galerie injoignable."));
         return;
       }
       const body = await r.json();
+      if (seq !== peopleSeq) return;
       people = body.people || [];
     } catch {
-      list.appendChild(emptyItem("Galerie injoignable."));
+      if (seq === peopleSeq) list.replaceChildren(emptyItem("Galerie injoignable."));
       return;
     }
+    list.replaceChildren();
     const names = $("facePeopleNames");
     if (names) {
       names.replaceChildren(...people.map((person) => {

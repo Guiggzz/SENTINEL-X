@@ -83,7 +83,7 @@
     const mk = (cls, txt) => { const e = document.createElement("span"); e.className = cls; e.textContent = String(txt); return e; };
     li.append(mk("time", nowLabel()), mk(tagClass, tag), mk("msg", message));
     eventLog.prepend(li);
-    while (eventLog.children.length > 80) eventLog.removeChild(eventLog.lastChild);
+    while (eventLog.children.length > 200) eventLog.removeChild(eventLog.lastChild);
   }
 
   const GRID = "#e0ded4";
@@ -218,7 +218,7 @@
       if (mine) applyStatus(mine.status);
     }
 
-    const al = await fetch("/api/v1/alerts?limit=30", { credentials: "same-origin" });
+    const al = await fetch("/api/v1/alerts?limit=100", { credentials: "same-origin" });
     if (al.ok) {
       const alerts = await al.json();
       alerts.reverse().forEach((a) => {
@@ -280,6 +280,9 @@
     });
   });
 
+  // Caméra : trames JPEG tirées seulement quand l'onglet Caméra est affiché (économie CPU
+  // côté navigateur et service vision). La capture d'enrôlement (Visages) passe par
+  // /cam/snapshot_raw.jpg côté serveur et ne dépend pas de cette image.
   function setupCamera() {
     const params = new URLSearchParams(location.search);
     try { localStorage.removeItem("sentinelCamUrl"); } catch (_) {}
@@ -289,6 +292,8 @@
     let timer = null;
     let fails = 0;
     let objectUrl = null;
+    let active = false;
+    let gen = 0;
 
     function showFallback(msg) {
       img.style.display = "none";
@@ -300,7 +305,8 @@
       fallback.style.display = "none";
     }
 
-    async function tick() {
+    async function tick(g) {
+      if (!active || g !== gen) return;
       try {
         const r = await fetch(snap + (snap.includes("?") ? "&" : "?") + "t=" + Date.now(), {
           cache: "no-store",
@@ -308,6 +314,7 @@
         });
         if (!r.ok) throw new Error("HTTP " + r.status);
         const blob = await r.blob();
+        if (!active || g !== gen) return;
         if (!blob || blob.size < 100) throw new Error("image vide");
         if (objectUrl) URL.revokeObjectURL(objectUrl);
         objectUrl = URL.createObjectURL(blob);
@@ -316,22 +323,74 @@
           img.onerror = () => reject(new Error("decode"));
           img.src = objectUrl;
         });
+        if (!active || g !== gen) return;
         fails = 0;
         showFeed();
-        timer = setTimeout(tick, 250);
+        timer = setTimeout(() => tick(g), 250);
       } catch (err) {
+        if (!active || g !== gen) return;
         fails += 1;
         showFallback("Flux indisponible (" + (err && err.message ? err.message : err) + ")");
-        timer = setTimeout(tick, fails >= 3 ? 3000 : 800);
+        timer = setTimeout(() => tick(g), fails >= 3 ? 3000 : 800);
       }
     }
-    tick();
 
+    function setActive(on) {
+      if (on === active) return;
+      active = on;
+      gen += 1;
+      clearTimeout(timer);
+      timer = null;
+      if (on) {
+        fails = 0;
+        tick(gen);
+      } else {
+        img.removeAttribute("src");
+        if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+        showFallback("Flux en pause");
+      }
+    }
+
+    showFallback("Flux en pause");
+    return { setActive };
   }
+
+  // ---- onglets : data-tab="x" -> section #tab-x ; l'onglet courant est gardé dans l'ancre (#cam, #log…)
+  const tabButtons = [...document.querySelectorAll(".tab")];
+  const tabNames = tabButtons.map((b) => b.dataset.tab);
+  function showTab(name, remember) {
+    if (!tabNames.includes(name)) name = "ops";
+    tabButtons.forEach((b) => {
+      const on = b.dataset.tab === name;
+      b.classList.toggle("is-on", on);
+      b.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    tabNames.forEach((n) => {
+      const page = el("tab-" + n);
+      if (page) page.hidden = n !== name;
+    });
+    if (remember) {
+      const hash = name === "ops" ? "" : "#" + name;
+      history.replaceState(null, "", location.pathname + location.search + hash);
+    }
+    // les autres modules (faces.js, ai.js) écoutent cet événement
+    window.dispatchEvent(new CustomEvent("sentinel:tab", { detail: name }));
+    window.dispatchEvent(new Event("resize"));
+  }
+  tabButtons.forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab, true)));
+  window.addEventListener("hashchange", () => showTab(location.hash.slice(1), false));
+
+  const camera = setupCamera();
+  window.addEventListener("sentinel:tab", (ev) => {
+    camera.setActive(ev.detail === "cam");
+    // graphiques créés pendant que la page était masquée : recalcul de taille à l'affichage
+    if (ev.detail === "ops") [chartTemp, chartHum, chartGas].forEach((c) => c.resize());
+  });
+  // après le chargement de tous les scripts (faces.js écoute aussi l'événement)
+  document.addEventListener("DOMContentLoaded", () => showTab(location.hash.slice(1), false));
 
   loadHistory().catch((err) => {
     addLog("ERR", err.message);
   });
   connectWs();
-  setupCamera();
 })();
