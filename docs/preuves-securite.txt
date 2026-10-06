@@ -401,3 +401,42 @@ vision (test_face_api.py + test_face_gallery.py) : 18 tests OK
 - Sessions révoquées / verrouillages en mémoire : remis à zéro au redémarrage de l'API.
 - Le flux vision n'a pas d'authentification propre (protégé par le bind + UFW ; accès client via /cam/* authentifié).
 - 22/tcp (SSH clé uniquement, rate-limit UFW) reste exposé au réseau local.
+
+===== Anti-spoofing visage (vivacité) — 2026-10-06 =====
+Objectif : une photo imprimée ou un écran (téléphone/PC) montrant une personne enrôlée ne doit
+jamais être accepté comme « connu ».
+
+Méthode (vision/face_liveness.py, CPU, OpenCV DNN) :
+- Modèle passif Silent-Face-Anti-Spoofing (Minivision, Apache-2.0) : MiniFASNetV2 (échelle 2.7) +
+  MiniFASNetV1SE (échelle 4.0), entrées 80x80 BGR 0..255, softmax 3 classes [photo, vrai, écran]
+  moyenné ; score « vivant » = probabilité de la classe vrai visage.
+- Modèles ONNX (QingHeYang/Silent-Face-Anti-Spoofing-onnx, commit 584d442) épinglés par SHA-256
+  dans fetch_face_models.py, hors git ; sorties vérifiées identiques aux poids .pth officiels
+  (écart < 1e-6 ; SHA-256 du .pth V2 = celui publié en amont).
+- Découpe identique au dépôt d'origine (CropImage._get_new_box). La boîte YuNet est convertie
+  en boîte « type RetinaFace » (détecteur d'entraînement) : largeur x1,13, hauteur x0,92, centre
+  -> +5 % (calibré sur nos trames). Mesure sur la trame caméra brute (avant CLAHE).
+- Seulement sur les visages détectés de largeur >= 56 px ; ~4 ms par visage ; FPS inchangé
+  (~9,2-9,6 FPS, YOLO ~36 ms, CPU ~177 % avant/après).
+- Lissage temporel par piste (suivi IoU) : moyenne exponentielle alpha 0,4, au moins 3 mesures
+  (passe visage toutes les 0,30 s), hystérésis entre les seuils.
+
+Décision et seuils (variables d'environnement SENTINEL_LIVENESS_*) :
+- connu + vivant (moyenne >= 0,70) -> « Guillaume », pas d'alarme ;
+- moyenne <= 0,30 -> « LEURRE » : événement vision/face_spoof, sirène intrus si l'alarme visage
+  est armée, notification Discord (après 2 s, cooldown 30 s) ;
+- entre les deux, < 3 mesures ou visage trop petit -> « Vérification… » : ni connu ni alarme ;
+- enrôlement : capture/photo avec score < 0,60 refusée (422 « image non vivante (photo/écran ?) ») ;
+  les empreintes déjà enrôlées n'ont pas été modifiées.
+
+Constats sur site (webcam UGREEN 440p) : vrais visages médiane 0,97-1,00 par piste ; visage
+très proche (> 130 px) : creux ponctuels jusqu'à 0,33, moyenne lissée minimale 0,44 (d'où le seuil
+leurre à 0,30). Échantillons « faux » du dépôt d'origine : 0,03 et 0,09 (rejetés), vrai : 0,99.
+
+Tests : vision 56 OK (33 nouveaux : découpe, lissage, décisions, enrôlement, Discord 2 s/30 s),
+backend 22 OK (face_spoof -> alarme) ; check-demo.sh tout OK.
+
+Limites : modèle 2D passif. Masques 3D, vidéo haute qualité sur grand écran sans bord visible,
+ou impression photo grand format bien éclairée : non garantis. Visages < 56 px (loin) : pas de
+mesure, donc jamais « connu » (vérification). Test réel à faire : photo sur téléphone et photo
+imprimée d'une personne enrôlée devant la webcam.

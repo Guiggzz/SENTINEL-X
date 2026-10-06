@@ -57,6 +57,12 @@
     if (ready && s.status === "known") {
       text = `Connu · ${s.name || "?"}`;
       kind = "known";
+    } else if (ready && s.status === "spoof") {
+      text = "Leurre · photo ou écran";
+      kind = "spoof";
+    } else if (ready && s.status === "checking") {
+      text = "Vérification…";
+      kind = "checking";
     } else if (ready && s.status === "unknown") {
       text = "Inconnu";
       kind = "unknown";
@@ -64,13 +70,15 @@
       text = "Aucun visage";
       kind = "none";
     }
+    const alarm = kind === "unknown" || kind === "spoof";
     const live = $("faceLive");
     live.textContent = text;
-    live.className = "face-status" + (kind === "unknown" ? " unknown" : "");
+    live.className = "face-status" + (alarm ? " unknown" : "") + (kind === "spoof" ? " spoof" : "")
+      + (kind === "checking" ? " checking" : "");
     const line = $("faceStatusLine");
     if (line) {
       line.textContent = `Visage · ${text}`;
-      line.className = "mco-sub" + (kind === "unknown" ? " alarm" : "");
+      line.className = "mco-sub" + (alarm ? " alarm" : "");
     }
     const score = $("faceScore");
     if (!ready) {
@@ -80,6 +88,36 @@
     } else {
       score.textContent = `seuil ${s.threshold != null ? Number(s.threshold).toFixed(2) : "—"} · galerie ${s.gallery ?? 0}`;
     }
+    renderLiveness(ready ? s : null);
+  }
+
+  // Anti-spoofing : Vivant / Leurre / Vérification + score lissé
+  function renderLiveness(s) {
+    const el = $("faceLiveness");
+    if (!el) return;
+    const lv = s && s.liveness;
+    let text = "";
+    let cls = "face-liveness";
+    if (!s) {
+      text = "";
+    } else if (!lv || !lv.ready) {
+      text = "Vivacité · anti-spoofing indisponible";
+    } else if (!s.faces) {
+      text = `Vivacité · seuils vivant ≥ ${Number(lv.live_threshold).toFixed(2)}, leurre ≤ ${Number(lv.spoof_threshold).toFixed(2)}`;
+    } else {
+      const sc = lv.score != null ? ` · ${Number(lv.score).toFixed(2)}` : "";
+      if (lv.state === "spoof") {
+        text = `Leurre${sc}`;
+        cls += " spoof";
+      } else if (lv.state === "live") {
+        text = `Vivant${sc}`;
+        cls += " live";
+      } else {
+        text = `Vérification${sc}`;
+      }
+    }
+    el.textContent = text;
+    el.className = cls;
   }
 
   async function pollStatus() {

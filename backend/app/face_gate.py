@@ -1,4 +1,4 @@
-"""Règles pures : visage inconnu sonne, visage connu non, portillon caméra."""
+"""Règles pures : visage inconnu ou leurre sonne, visage connu non, portillon caméra."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ def face_alarm_action(face_alarm_on: bool, state: str) -> str:
     if not face_alarm_on:
         return "ignore"
     st = (state or "").lower()
-    if st == "face_unknown":
+    if st in {"face_unknown", "face_spoof"}:  # leurre (photo/écran) = tentative d'intrusion
         return "alarm"
     if st in {"face_cleared", "face_known", "face_none"}:
         return "clear"

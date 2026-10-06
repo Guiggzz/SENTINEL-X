@@ -11,6 +11,8 @@ from pathlib import Path
 
 import numpy as np
 
+from face_liveness import LivenessConfig, LivenessModel
+
 YUNET_NAME = "face_detection_yunet_2023mar.onnx"
 SFACE_NAME = "face_recognition_sface_2021dec.onnx"
 
@@ -24,6 +26,10 @@ class Detection:
     faces: int = 1
     landmarks: tuple[float, ...] | None = None
     portrait_jpeg: bytes | None = None
+    # anti-spoofing (embed_bytes) : live_checked=True si le modèle a tourné ou aurait dû
+    live_checked: bool = False
+    live_score: float | None = None
+    live_probs: tuple[float, float, float] | None = None
 
     @property
     def frontal(self) -> bool:
@@ -63,8 +69,11 @@ def portrait_box(
 
 
 class FaceEngine:
-    def __init__(self, model_dir: Path) -> None:
+    def __init__(self, model_dir: Path, live_cfg: LivenessConfig | None = None) -> None:
         self.model_dir = Path(model_dir)
+        self.live_cfg = live_cfg or LivenessConfig.from_env()
+        self.live = LivenessModel(self.model_dir)
+        self.enroll_live_threshold = self.live_cfg.enroll_threshold
         self.ready = False
         self.detail = "modèles absents — lancer fetch_face_models.py"
         self._cv2 = None
@@ -112,6 +121,16 @@ class FaceEngine:
                 found.append(Detection(emb, (x, y, bw, bh), float(row[-1]), landmarks=marks))
             return found
 
+    @property
+    def liveness_on(self) -> bool:
+        return self.live_cfg.enabled and self.live.ready
+
+    def liveness_probs(self, image: np.ndarray, box) -> np.ndarray | None:
+        """[photo, vrai, écran] pour une boîte YuNet ; None si modèle absent ou visage trop petit."""
+        if not self.liveness_on or box[2] < self.live_cfg.min_face:
+            return None
+        return self.live.probs(image, box)
+
     def embed_bytes(self, data: bytes) -> Detection | None:
         if not self.ready or not data:
             return None
@@ -129,6 +148,12 @@ class FaceEngine:
         # Les petits visages d'arrière-plan sont ignorés (le plus grand est retenu).
         area = max(best.box[2] * best.box[3], 1)
         best.faces = sum(1 for det in found if det.box[2] * det.box[3] >= 0.25 * area)
+        if self.liveness_on:
+            best.live_checked = True
+            probs = self.liveness_probs(image, best.box)
+            if probs is not None:
+                best.live_probs = tuple(float(v) for v in probs)
+                best.live_score = float(probs[1])
         return best
 
     def _thumb(self, image: np.ndarray, box: tuple[int, int, int, int]) -> bytes:

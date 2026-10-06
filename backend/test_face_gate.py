@@ -15,6 +15,10 @@ class FaceGateTests(unittest.TestCase):
         self.assertEqual(face_alarm_action(True, "face_unknown"), "alarm")
         self.assertEqual(face_alarm_action(False, "face_unknown"), "ignore")
 
+    def test_spoof_alarms_like_intrusion(self) -> None:
+        self.assertEqual(face_alarm_action(True, "face_spoof"), "alarm")
+        self.assertEqual(face_alarm_action(False, "face_spoof"), "ignore")
+
     def test_no_face_clears_without_alarm(self) -> None:
         self.assertEqual(face_alarm_action(True, "face_cleared"), "clear")
         self.assertEqual(face_alarm_action(True, "face_none"), "clear")

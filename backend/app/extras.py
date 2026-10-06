@@ -255,8 +255,8 @@ async def put_face_alarm(body: PersonAlarmIn, db: AsyncSession = Depends(get_db)
     await _log_alert("sentinel-api", "reglage", "alarme_visage_armee" if body.enabled else "alarme_visage_desarmee")
     if body.enabled:
         health = await asyncio.to_thread(_vision_health)
-        if health.get("face_ready") and health.get("face_status") == "unknown":
-            await on_face_event(settings.default_device_id, "face_unknown")
+        if health.get("face_ready") and health.get("face_status") in ("unknown", "spoof"):
+            await on_face_event(settings.default_device_id, "face_" + health["face_status"])
         else:
             try:
                 _cmd({"action": "beep", "duration_ms": 400})
@@ -373,7 +373,7 @@ async def on_vision_alert(device_id: str, state: str) -> None:
 
 
 async def on_face_event(device_id: str, state: str) -> None:
-    """Sirène intrus seulement pour un visage inconnu, et seulement si le réglage est armé.
+    """Sirène intrus pour un visage inconnu ou un leurre (photo/écran), si le réglage est armé.
 
     Visage connu ou absence de visage : pas d'alarme. Si la sirène en cours vient de ce
     portillon, on la coupe. La LED rouge suit le buzzer (mode auto du firmware).
@@ -400,7 +400,7 @@ async def on_face_event(device_id: str, state: str) -> None:
             device_id,
             "intrusion",
             "alarme_declenchee",
-            {"song": "intrus", "duration_ms": INTRUS_MS, "source": "face"},
+            {"song": "intrus", "duration_ms": INTRUS_MS, "source": "face", "state": state},
         )
         return
     if _face_siren and time.time() < _intrus_until and not gas_alarm_active():

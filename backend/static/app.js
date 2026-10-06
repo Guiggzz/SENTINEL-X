@@ -68,6 +68,10 @@
     setText("stNode", online ? "en ligne" : "hors ligne", online ? "ok" : "danger");
   }
 
+  // libellés lisibles pour les événements visage du service vision
+  const STATE_NOTE = { face_spoof: " · leurre photo/écran", face_unknown: " · visage inconnu", face_known: " · visage connu" };
+  const alertText = (d) => `${d.device_id || "?"} · ${d.type}/${d.state}${STATE_NOTE[d.state] || ""}`;
+
   function addLog(tag, message) {
     const li = document.createElement("li");
     const tagClass = tag === "ALERT" ? "tag alert" : "tag";
@@ -214,7 +218,7 @@
     if (al.ok) {
       const alerts = await al.json();
       alerts.reverse().forEach((a) => {
-        addLog("ALERT", `${a.device_id} · ${a.type}/${a.state}`);
+        addLog("ALERT", alertText(a));
       });
     }
   }
@@ -241,7 +245,7 @@
         applyTelemetry(data);
         if (state.nodeOnline === null) applyStatus("online");
       } else if (channel === "alerts" && data && typeof data === "object") {
-        addLog("ALERT", `${data.device_id || "?"} · ${data.type}/${data.state}`);
+        addLog("ALERT", alertText(data));
       } else if (channel === "status") {
         applyStatus(data);
         addLog("STATUS", `${msg.topic || DEVICE_ID} → ${data}`);

@@ -9,15 +9,18 @@ import logging
 import os
 import threading
 import time
+import unicodedata
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
+from discord_alert import DiscordAlerter
 from face_api import enroll_images, parse_multipart_opts, set_portrait_image
 from face_engine import FaceEngine
 from face_gallery import Gallery
+from face_liveness import LivenessConfig, LivenessTracker, aggregate_status, face_verdict
 
 # Cap CPU threads BEFORE loading torch/ultralytics
 _nt = int(os.environ.get("TORCH_NUM_THREADS", "2"))
@@ -87,7 +90,12 @@ PERSON_CLASS_ID = 0  # COCO person
 # Similarité cosinus SFace. Référence OpenCV : 0,363 (plus haut = plus strict).
 FACE_THRESHOLD = float(os.environ.get("SENTINEL_FACE_THRESHOLD", "0.363"))
 FACE_DEBOUNCE = float(os.environ.get("SENTINEL_FACE_DEBOUNCE", "1.5"))
-FACE_INTERVAL = float(os.environ.get("SENTINEL_FACE_INTERVAL", "0.45"))
+FACE_INTERVAL = float(os.environ.get("SENTINEL_FACE_INTERVAL", "0.30"))
+# Anti-spoofing : trame mesurée = "raw" (avant éclaircissement CLAHE) ou "processed"
+LIVENESS_SOURCE = os.environ.get("SENTINEL_LIVENESS_SOURCE", "raw").strip().lower()
+LIVE_CFG = LivenessConfig.from_env()
+# 1 = journalise chaque mesure (score sur trame brute ET éclaircie) pour calibrer sur site
+LIVE_DEBUG = os.environ.get("SENTINEL_LIVENESS_DEBUG", "0") == "1"
 _VISION_DIR = Path(__file__).resolve().parent
 FACE_DIR = Path(os.environ.get("SENTINEL_FACE_DIR", str(_VISION_DIR / "data" / "gallery")))
 FACE_MODEL_DIR = Path(os.environ.get("SENTINEL_FACE_MODEL_DIR", str(_VISION_DIR / "models")))
@@ -118,14 +126,19 @@ class CameraWorker:
         self._last_alert_ts = 0.0
         self._started_at = time.monotonic()
         self._gallery = Gallery(FACE_DIR)
-        self._face_engine = FaceEngine(FACE_MODEL_DIR)
+        self._face_engine = FaceEngine(FACE_MODEL_DIR, LIVE_CFG)
         self._face_live: dict[str, Any] = {
             "status": "unavailable" if not self._face_engine.ready else "none",
             "name": None,
             "score": None,
             "faces": 0,
+            "liveness": None,
+            "live_state": None,
         }
-        self._face_marks: list[tuple[int, int, int, int, str, bool]] = []
+        self._face_marks: list[tuple[int, int, int, int, str, str]] = []
+        self._tracker = LivenessTracker(LIVE_CFG)
+        self._live_ms: list[float] = []
+        self._discord = DiscordAlerter(self.get_jpeg, camera=DEVICE_ID)
         self._face_pending: str | None = None
         self._face_pending_name: str | None = None
         self._face_since: float | None = None
@@ -133,8 +146,17 @@ class CameraWorker:
         self._face_reported_name: str | None = None
         if self._face_engine.ready:
             logger.info("Reconnaissance visage prête (%s), seuil %.3f", self._face_engine.detail, FACE_THRESHOLD)
+            if self._face_engine.liveness_on:
+                logger.info(
+                    "Anti-spoofing prêt (%s) : vivant>=%.2f leurre<=%.2f, %d mesures, visage>=%dpx, trame %s",
+                    self._face_engine.live.detail, LIVE_CFG.live_threshold, LIVE_CFG.spoof_threshold,
+                    LIVE_CFG.min_obs, LIVE_CFG.min_face, LIVENESS_SOURCE,
+                )
+            else:
+                logger.warning("Anti-spoofing inactif : %s", self._face_engine.live.detail)
         else:
             logger.warning("Reconnaissance visage indisponible : %s", self._face_engine.detail)
+        logger.info("Alertes Discord : %s", "actives" if self._discord.enabled else "inactives")
 
     def start(self) -> None:
         logger.info("Loading YOLO model %s (CPU)…", MODEL_NAME)
@@ -166,6 +188,12 @@ class CameraWorker:
                 "face_count": self._face_live["faces"],
                 "face_gallery": self._gallery.count(),
                 "face_model": self._face_engine.detail,
+                "face_liveness": self._face_live.get("liveness"),
+                "face_live_state": self._face_live.get("live_state"),
+                "liveness_ready": self._face_engine.liveness_on,
+                "liveness_ms": round(sum(self._live_ms) / len(self._live_ms), 2) if self._live_ms else None,
+                "face_interval_s": FACE_INTERVAL,
+                "discord_alerts": self._discord.enabled,
                 "model": MODEL_NAME,
                 "device": "cpu",
                 "uptime_s": round(time.monotonic() - self._started_at, 1),
@@ -274,13 +302,23 @@ class CameraWorker:
             "faces": live.get("faces") or 0,
             "gallery": self._gallery.count(),
             "model": self._face_engine.detail,
+            "liveness": {
+                "ready": self._face_engine.liveness_on,
+                "state": live.get("live_state"),
+                "score": live.get("liveness"),
+                "live_threshold": LIVE_CFG.live_threshold,
+                "spoof_threshold": LIVE_CFG.spoof_threshold,
+                "min_obs": LIVE_CFG.min_obs,
+                "model": self._face_engine.live.detail,
+            },
         }
 
-    def _recognize(self, frame: np.ndarray) -> None:
+    def _recognize(self, frame: np.ndarray, live_frame: np.ndarray | None = None) -> None:
         engine = self._face_engine
         if not engine.ready:
             with self._lock:
-                self._face_live = {"status": "unavailable", "name": None, "score": None, "faces": 0}
+                self._face_live = {"status": "unavailable", "name": None, "score": None, "faces": 0,
+                                   "liveness": None, "live_state": None}
                 self._face_marks = []
             return
         try:
@@ -288,47 +326,97 @@ class CameraWorker:
         except Exception as exc:  # noqa: BLE001
             logger.warning("reconnaissance visage: %s", exc)
             return
-        marks: list[tuple[int, int, int, int, str, bool]] = []
-        known_names: list[str] = []
-        any_unknown = False
-        best_unknown: float | None = None
-        worst_known: float | None = None
-        for det in detections:
+        now = time.monotonic()
+        live_on = engine.liveness_on
+        src = live_frame if (live_frame is not None and LIVENESS_SOURCE == "raw") else frame
+        tracks = self._tracker.assign([d.box for d in detections], now)
+        marks: list[tuple[int, int, int, int, str, str]] = []
+        rows: list[tuple[str, str | None, float | None, float | None, str]] = []
+        for det, tr in zip(detections, tracks):
+            if live_on and self._tracker.wants_measure(tr):
+                t0 = time.perf_counter()
+                probs = engine.liveness_probs(src, det.box)
+                if probs is not None:
+                    tr.observe(float(probs[1]), LIVE_CFG)
+                    self._live_ms = (self._live_ms + [(time.perf_counter() - t0) * 1000.0])[-30:]
+                    if LIVE_DEBUG:
+                        other = frame if src is not frame else live_frame
+                        alt = engine.liveness_probs(other, det.box) if other is not None else None
+                        logger.info("liveness piste=%d w=%d %s=%.3f autre=%s ema=%.3f etat=%s probs=%s",
+                                    tr.track_id, det.box[2], LIVENESS_SOURCE, probs[1],
+                                    "-" if alt is None else f"{alt[1]:.3f}", tr.ema, tr.state,
+                                    ",".join(f"{v:.2f}" for v in probs))
             hit = self._gallery.match(det.embedding, FACE_THRESHOLD)
-            if hit.status == "known" and hit.name:
-                known_names.append(hit.name)
-                label = f"{hit.name} {hit.score:.2f}" if hit.score is not None else hit.name
-                marks.append((*det.box, label, True))
-                if hit.score is not None:
-                    worst_known = hit.score if worst_known is None else min(worst_known, hit.score)
+            known = hit.status == "known" and bool(hit.name)
+            verdict = face_verdict(known, "checking" if tr.small else tr.state, live_on)
+            rows.append((verdict, hit.name if known else None, hit.score, tr.ema if live_on else None, tr.state))
+            marks.append((*det.box, self._face_label(verdict, hit.name if known else None, hit.score,
+                                                     tr.ema if live_on else None, tr.small), verdict))
+        status = aggregate_status([r[0] for r in rows])
+        name, score, liveness, live_state = None, None, None, None
+        if rows:
+            chosen = [r for r in rows if r[0] == status]
+            scores = [r[2] for r in rows if r[2] is not None]
+            lives = [r[3] for r in chosen if r[3] is not None]
+            if status == "known":
+                name = ", ".join(dict.fromkeys(r[1] for r in chosen if r[1]))
+                known_scores = [r[2] for r in chosen if r[2] is not None]
+                score = min(known_scores) if known_scores else None
+            elif status == "checking":
+                name = ", ".join(dict.fromkeys(r[1] for r in chosen if r[1])) or None
+                score = max(scores) if scores else None
             else:
-                any_unknown = True
-                label = f"inconnu {hit.score:.2f}" if hit.score is not None else "inconnu"
-                marks.append((*det.box, label, False))
-                if hit.score is not None:
-                    best_unknown = hit.score if best_unknown is None else max(best_unknown, hit.score)
-        if not detections:
-            status, name, score = "none", None, None
-        elif any_unknown:
-            status, name, score = "unknown", None, best_unknown
-        else:
-            status, name, score = "known", ", ".join(dict.fromkeys(known_names)), worst_known
+                own = [r[2] for r in chosen if r[2] is not None]
+                score = max(own) if own else None
+            liveness = min(lives) if lives else None
+            if live_on:
+                live_state = {"spoof": "spoof", "known": "live"}.get(status) or (
+                    "live" if status == "unknown" and liveness is not None and liveness >= LIVE_CFG.live_threshold
+                    else "checking")
         with self._lock:
-            self._face_live = {"status": status, "name": name, "score": score, "faces": len(detections)}
+            self._face_live = {"status": status, "name": name, "score": score, "faces": len(detections),
+                               "liveness": None if liveness is None else round(float(liveness), 3),
+                               "live_state": live_state}
             self._face_marks = marks
         self._update_face_alerts(status, name)
+        self._discord.observe(status, {"similarity": score, "liveness": liveness})
+
+    @staticmethod
+    def _face_label(verdict: str, name: str | None, score: float | None, live: float | None, small: bool) -> str:
+        """Étiquette incrustée (police Hershey : ASCII seulement, accents retirés)."""
+        sim = f" {score:.2f}" if score is not None else ""
+        viv = f" | vivant {live:.2f}" if live is not None else ""
+        if verdict == "spoof":
+            text = f"LEURRE {live:.2f}" if live is not None else "LEURRE"
+        elif verdict == "known":
+            text = f"{name}{sim}{viv}"
+        elif verdict == "checking":
+            text = f"{name}? verification" + (" (approchez)" if small else (f" {live:.2f}" if live is not None else ""))
+        else:
+            text = f"inconnu{sim}{viv}"
+        return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
 
     def _note_face_absent(self) -> None:
         """Caméra coupée : plus de visage, pour laisser retomber l'alarme inconnue."""
         if not self._face_engine.ready:
             return
         with self._lock:
-            self._face_live = {"status": "none", "name": None, "score": None, "faces": 0}
+            self._face_live = {"status": "none", "name": None, "score": None, "faces": 0,
+                               "liveness": None, "live_state": None}
             self._face_marks = []
+        self._tracker.reset()
         self._update_face_alerts("none", None)
+        self._discord.observe("none", {})
 
     def _update_face_alerts(self, status: str, name: str | None) -> None:
         now = time.monotonic()
+        if status == "checking":
+            # preuve de vivacité insuffisante : ni « connu » ni alarme ; un « connu » devra
+            # ensuite rester stable FACE_DEBOUNCE avant d'être publié.
+            self._face_pending = status
+            self._face_pending_name = None
+            self._face_since = now
+            return
         if status != self._face_pending or name != self._face_pending_name:
             self._face_pending = status
             self._face_pending_name = name
@@ -348,6 +436,9 @@ class CameraWorker:
         logger.info("Visage stable %s name=%s", status, name)
         if status == "unknown":
             self._post_alert("face_unknown", self._persons, None)
+        elif status == "spoof":
+            logger.warning("Leurre détecté (photo/écran) : tentative d'usurpation")
+            self._post_alert("face_spoof", self._persons, None)
         elif status == "known":
             self._post_alert("face_known", self._persons, None)
         else:
@@ -359,7 +450,7 @@ class CameraWorker:
         boxes: list[tuple[int, int, int, int, float, str]],
         persons: int,
         fps: float,
-        face_marks: list[tuple[int, int, int, int, str, bool]] | None = None,
+        face_marks: list[tuple[int, int, int, int, str, str]] | None = None,
     ) -> np.ndarray:
         out = frame
         for x1, y1, x2, y2, conf, label in boxes:
@@ -377,9 +468,11 @@ class CameraWorker:
                 1,
                 cv2.LINE_AA,
             )
-        for x, y, bw, bh, label, known in face_marks or []:
-            color = (74, 125, 47) if known else (38, 92, 196)
-            cv2.rectangle(out, (x, y), (x + bw, y + bh), color, 2)
+        for x, y, bw, bh, label, kind in face_marks or []:
+            # BGR sobres : connu vert, inconnu rouge brique, leurre orange (accent), vérif. gris
+            color = {"known": (74, 125, 47), "spoof": (38, 92, 196), "checking": (110, 108, 102)}.get(
+                kind, (46, 58, 163))
+            cv2.rectangle(out, (x, y), (x + bw, y + bh), color, 3 if kind == "spoof" else 2)
             (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
             y0 = y + bh + th + 6
             if y0 > out.shape[0]:
@@ -445,6 +538,7 @@ class CameraWorker:
                     nw = int(round(w * OUTPUT_HEIGHT / h / 2)) * 2
                     frame = cv2.resize(frame, (nw, OUTPUT_HEIGHT), interpolation=cv2.INTER_AREA)
 
+                raw_frame = frame
                 frame = lift_shadows(frame)
 
                 now = time.monotonic()
@@ -486,7 +580,7 @@ class CameraWorker:
                             self._persons = persons
                     self._update_person_alerts(persons, max_conf)
                     if now - last_face >= FACE_INTERVAL:
-                        self._recognize(frame)
+                        self._recognize(frame, raw_frame)
                         last_face = time.monotonic()
 
                 annotated = self._draw_overlay(

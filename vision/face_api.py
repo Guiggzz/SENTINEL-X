@@ -40,6 +40,26 @@ def parse_multipart_opts(content_type: str, body: bytes) -> tuple[str, list[byte
     return name, photos, opts
 
 
+SPOOF_ERROR = "image non vivante (photo/écran ?)"
+
+
+def _liveness_refusal(embedder, det) -> dict | None:
+    """Anti-spoofing à l'enrôlement : refuse une capture qui ressemble à une photo ou un écran.
+
+    Les empreintes déjà enrôlées ne sont pas re-traitées. Sans modèle anti-spoofing
+    (live_checked absent/False), pas de contrôle.
+    """
+    if not getattr(det, "live_checked", False):
+        return None
+    score = getattr(det, "live_score", None)
+    if score is None:
+        return {"error": "visage trop petit pour vérifier qu'il est vivant. Se rapprocher (~1 m).", "liveness": None}
+    threshold = float(getattr(embedder, "enroll_live_threshold", 0.6))
+    if float(score) < threshold:
+        return {"error": SPOOF_ERROR, "liveness": round(float(score), 3), "threshold": threshold}
+    return None
+
+
 def enroll_images(
     gallery: Gallery, embedder, name: str, images: list[bytes], single: bool = False
 ) -> tuple[int, dict]:
@@ -61,6 +81,9 @@ def enroll_images(
         faces = int(getattr(det, "faces", 1) or 1)
         if single and faces > 1:
             return 422, {"error": f"{faces} visages de taille comparable. Une seule personne au premier plan.", "faces": faces}
+        refusal = _liveness_refusal(embedder, det)
+        if refusal is not None:
+            return 422, refusal
         embeddings.append(det.embedding)
         thumbs.append(det.thumb_jpeg or b"")
         # photo badge : la première photo de face du lot (sinon la première tout court)

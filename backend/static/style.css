@@ -483,6 +483,11 @@ button.switch.armed:hover { background: var(--accent); border-color: var(--accen
   font-weight: 500;
 }
 .face-status.unknown { color: var(--accent); }
+.face-status.spoof { text-transform: uppercase; letter-spacing: 0.03em; }
+.face-status.checking { color: var(--muted); }
+.face-liveness { margin: 2px 0 0; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.face-liveness.live { color: var(--ok-dot); }
+.face-liveness.spoof { color: var(--accent); font-weight: 600; }
 .mco-sub.alarm { color: var(--accent); }
 .face-form { display: grid; gap: 8px; max-width: 420px; margin-top: 8px; }
 .face-form label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
