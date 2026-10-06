@@ -8,7 +8,8 @@
 //   {"action":"display","mode":"identify"|"authorized"|"intrusion"|"normal","name":"Alice","duration_ms":8000}
 //     identify  : plein ecran inverse clignotant ~2 Hz "ATTENTION / IDENTIFIEZ-VOUS" (defaut 10 s)
 //     authorized: "ACCES AUTORISE" + nom (accents retires, 16 car. max) (defaut 3 s)
-//     intrusion : plein ecran inverse clignotant "INTRUS / ALARME" (defaut 10 s)
+//     intrusion : plein ecran, rien d'autre ; cycle 1,5 s : "ATTENTION" geant (inverse) puis
+//                 "INTRUS" x3 en taille 3 (normal puis inverse) (defaut 15 s = duree sirene intrus)
 //     normal    : retour a l'ecran de telemetrie. duration_ms borne a 500..30000.
 //   {"action":"beep_pattern","pattern":"identify"} (double bip court ; ignore si une alarme sonne)
 // OTA Wi-Fi : ArduinoOTA, hote sentinel-node-01, port 8266, mot de passe OTA_PASSWORD (secrets.h).
@@ -120,8 +121,11 @@ enum DispMode : uint8_t { DISP_NORMAL = 0, DISP_IDENTIFY = 1, DISP_AUTHORIZED = 
 uint8_t dispMode = DISP_NORMAL;
 unsigned long dispStart = 0, dispDuration = 0, dispLastBlink = 0;
 bool dispInv = false;
+uint8_t dispPhase = 0;                          // intrusion : 0 = ATTENTION, 1 et 2 = INTRUS x3
 char dispName[17] = "";
 const unsigned long DISP_BLINK_MS = 250;        // bascule toutes les 250 ms (~2 Hz)
+const unsigned long DISP_INTRUS_FRAME_MS = 500; // intrusion : une image toutes les 500 ms
+const unsigned long DISP_INTRUS_DEFAULT_MS = 15000;
 const unsigned long DISP_MIN_MS = 500, DISP_MAX_MS = 30000;
 void drawScreen();
 
@@ -141,10 +145,12 @@ void asciiName(const char* in, char* out, size_t outLen) {
   out[o] = 0;
 }
 
-void textCentered(const char* s, uint8_t size, int16_t y) {
-  int16_t w = strlen(s) * 6 * size - size;                         // police 5x7 + 1 colonne d'espace
-  oled.setTextSize(size); oled.setCursor(w < 128 ? (128 - w) / 2 : 0, y); oled.print(s);
+// Texte centre horizontalement ; sx/sy = agrandissement horizontal / vertical de la police 5x7
+void textCentered(const char* s, uint8_t sx, uint8_t sy, int16_t y) {
+  int16_t w = strlen(s) * 6 * sx - sx;                             // police 5x7 + 1 colonne d'espace
+  oled.setTextSize(sx, sy); oled.setCursor(w < 128 ? (128 - w) / 2 : 0, y); oled.print(s);
 }
+void textCentered(const char* s, uint8_t size, int16_t y) { textCentered(s, size, size, y); }
 // Triangle d'avertissement 15x15 avec "!" en creux
 void drawWarnIcon(int16_t x, int16_t y, uint16_t fg, uint16_t bg) {
   oled.fillTriangle(x + 7, y, x, y + 14, x + 14, y + 14, fg);
@@ -152,25 +158,32 @@ void drawWarnIcon(int16_t x, int16_t y, uint16_t fg, uint16_t bg) {
   oled.fillRect(x + 6, y + 11, 3, 2, bg);
 }
 
+// Intrusion : uniquement le message, le plus gros possible (aucune IP, mesure ni bandeau).
+// Cycle de 3 images de 500 ms :
+//   0 : "ATTENTION" etire 2x5 (107 x 35 px), video inverse
+//   1 : "INTRUS" x3 en taille 3 (105 x 21 px par ligne, 3 lignes = toute la hauteur), video normale
+//   2 : meme image en video inverse (inversion materielle, sans redessin)
+void drawIntrusion() {
+  if (!oledOk) return;
+  oled.clearDisplay(); oled.setTextWrap(false); oled.setTextColor(SSD1306_WHITE);
+  if (dispPhase == 0) textCentered("ATTENTION", 2, 5, 14);
+  else { textCentered("INTRUS", 3, 0); textCentered("INTRUS", 3, 22); textCentered("INTRUS", 3, 43); }
+  oled.display();
+  dispInv = dispPhase != 1; oled.invertDisplay(dispInv);
+}
+
 void drawAlert() {
   if (!oledOk) return;
+  if (dispMode == DISP_INTRUSION) { dispPhase = 0; drawIntrusion(); return; }
   oled.clearDisplay(); oled.setTextWrap(false);
-  if (dispMode == DISP_IDENTIFY || dispMode == DISP_INTRUSION) {
+  if (dispMode == DISP_IDENTIFY) {
     oled.fillScreen(SSD1306_WHITE); oled.setTextColor(SSD1306_BLACK);   // video inverse : fond blanc, texte noir
-    if (dispMode == DISP_IDENTIFY) {
-      drawWarnIcon(0, 0, SSD1306_BLACK, SSD1306_WHITE);
-      oled.setTextSize(2); oled.setCursor(19, 1); oled.print("ATTENTION");   // 19 + 107 px = 126
-      oled.drawFastHLine(0, 19, 128, SSD1306_BLACK);
-      oled.setCursor(0, 25); oled.print("IDENTIFIEZ");                       // 10 x 12 px = 120
-      oled.fillRect(120, 31, 8, 2, SSD1306_BLACK);                          // tiret de coupure dessine a la main
-      textCentered("VOUS", 2, 45);
-    } else {
-      textCentered("INTRUS", 3, 4);                                         // 105 x 24 px
-      oled.drawFastHLine(0, 33, 128, SSD1306_BLACK);
-      drawWarnIcon(4, 43, SSD1306_BLACK, SSD1306_WHITE);
-      drawWarnIcon(109, 43, SSD1306_BLACK, SSD1306_WHITE);
-      textCentered("ALARME", 2, 42);
-    }
+    drawWarnIcon(0, 0, SSD1306_BLACK, SSD1306_WHITE);
+    oled.setTextSize(2); oled.setCursor(19, 1); oled.print("ATTENTION");   // 19 + 107 px = 126
+    oled.drawFastHLine(0, 19, 128, SSD1306_BLACK);
+    oled.setCursor(0, 25); oled.print("IDENTIFIEZ");                       // 10 x 12 px = 120
+    oled.fillRect(120, 31, 8, 2, SSD1306_BLACK);                          // tiret de coupure dessine a la main
+    textCentered("VOUS", 2, 45);
   } else if (dispMode == DISP_AUTHORIZED) {
     oled.setTextColor(SSD1306_WHITE);
     textCentered("ACCES", 2, 0);
@@ -202,7 +215,12 @@ void updateDisplay() {
   if (dispMode == DISP_NORMAL || dispMode == DISP_OTA) return;
   unsigned long now = millis();
   if (dispDuration && now - dispStart >= dispDuration) { setDisplayMode(DISP_NORMAL, 0); return; }
-  if ((dispMode == DISP_IDENTIFY || dispMode == DISP_INTRUSION) && now - dispLastBlink >= DISP_BLINK_MS) {
+  if (dispMode == DISP_INTRUSION) {
+    if (now - dispLastBlink < DISP_INTRUS_FRAME_MS) return;
+    dispLastBlink = now; dispPhase = (dispPhase + 1) % 3;
+    if (dispPhase == 2) { dispInv = true; if (oledOk) oled.invertDisplay(true); }   // 1 -> 2 : inversion seule
+    else drawIntrusion();
+  } else if (dispMode == DISP_IDENTIFY && now - dispLastBlink >= DISP_BLINK_MS) {
     dispLastBlink = now; dispInv = !dispInv;
     if (oledOk) oled.invertDisplay(dispInv);
   }
@@ -265,7 +283,7 @@ void onCommand(char* topic, byte* payload, unsigned int len) {
     if (d) d = constrain(d, DISP_MIN_MS, DISP_MAX_MS);
     if (!strcmp(m, "identify")) setDisplayMode(DISP_IDENTIFY, d ? d : 10000);
     else if (!strcmp(m, "authorized")) { asciiName(doc["name"] | "", dispName, sizeof dispName); setDisplayMode(DISP_AUTHORIZED, d ? d : 3000); }
-    else if (!strcmp(m, "intrusion")) setDisplayMode(DISP_INTRUSION, d ? d : 10000);
+    else if (!strcmp(m, "intrusion")) setDisplayMode(DISP_INTRUSION, d ? d : DISP_INTRUS_DEFAULT_MS);
     else if (!strcmp(m, "normal")) setDisplayMode(DISP_NORMAL, 0);
     else { Serial.println("CMD display: mode inconnu"); return; }
     char st[24]; snprintf(st, sizeof st, "display_%s", m); publishAlert("actuator", st);

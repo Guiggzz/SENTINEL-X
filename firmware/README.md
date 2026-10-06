@@ -79,7 +79,11 @@ Modes `display` (non bloquants, base `millis()`, le nouveau mode remplace le pr�
 
 - `identify` (défaut 10 s) : plein écran inversé clignotant ~2 Hz, triangle d'avertissement + « ATTENTION », « IDENTIFIEZ- / VOUS ».
 - `authorized` (défaut 3 s) : « ACCES AUTORISE » + nom (accents retirés, `[A-Za-z0-9 -]`, 16 car. max).
-- `intrusion` (défaut 10 s) : plein écran inversé clignotant « INTRUS / ALARME ».
+- `intrusion` (défaut 15 s, durée de la sirène intrus) : plein écran sans aucune autre info (ni IP, ni mesures, ni bandeau),
+  cycle de 1,5 s : « ATTENTION » géant (police étirée 2x5, 107 x 35 px, vidéo inverse) 0,5 s, puis
+  « INTRUS » répété sur 3 lignes en taille 3 (105 x 21 px chacune, toute la hauteur) 0,5 s en vidéo normale + 0,5 s inversé.
+  L'écran de télémétrie ne le recouvre pas ; il reste jusqu'à une autre commande `display` (`normal`, `authorized`…)
+  ou la fin de `duration_ms`.
 - `normal` : retour immédiat à l'écran de télémétrie (aussi automatique à la fin de `duration_ms`).
 
 Exemples :
