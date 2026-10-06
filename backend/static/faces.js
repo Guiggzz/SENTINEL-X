@@ -13,6 +13,7 @@
       $("tab-ops").hidden = name !== "ops";
       $("tab-faces").hidden = name !== "faces";
       if (name === "faces") loadPeople();
+      setCamLive(name === "faces");
       window.dispatchEvent(new Event("resize"));
     });
   });
@@ -118,6 +119,15 @@
       list.appendChild(emptyItem("Galerie injoignable."));
       return;
     }
+    const names = $("facePeopleNames");
+    if (names) {
+      names.replaceChildren(...people.map((person) => {
+        const opt = document.createElement("option");
+        opt.value = person.name || person.id;
+        opt.label = `${person.samples || 0} photo(s)`;
+        return opt;
+      }));
+    }
     if (!people.length) {
       list.appendChild(emptyItem("Aucune personne enrôlée."));
       return;
@@ -148,7 +158,19 @@
         if (r.status === 401) { location.href = "/login"; return; }
         await loadPeople();
       });
-      li.append(img, text, del);
+      const add = document.createElement("button");
+      add.type = "button";
+      add.textContent = "+ Photos";
+      add.title = "Ajouter des photos à cette personne";
+      add.addEventListener("click", () => {
+        $("faceName").value = person.name || person.id;
+        $("faceCaptureMsg").textContent = `${person.name} · ${person.samples || 0} photo(s). Capturer pour en ajouter.`;
+        $("faceCaptureBtn").focus();
+      });
+      const actions = document.createElement("div");
+      actions.className = "actions";
+      actions.append(add, del);
+      li.append(img, text, actions);
       list.appendChild(li);
     }
   }
@@ -177,6 +199,101 @@
     msg.textContent = `${payload.name} enrôlé (${payload.samples} photo(s)).`;
     $("faceForm").reset();
     await loadPeople();
+  });
+
+  // ---- capture caméra : trame brute -> enrôlement (une photo par clic)
+  let camTimer = null;
+  let camUrl = null;
+  async function fetchFrame(raw) {
+    const paths = raw ? ["/cam/snapshot_raw.jpg", "/cam/snapshot.jpg"] : ["/cam/snapshot.jpg"];
+    for (const path of paths) {
+      const r = await fetch(path, { credentials: "same-origin", cache: "no-store" });
+      if (r.status === 401) { location.href = "/login"; return null; }
+      if (r.ok) return r.blob();
+      if (r.status !== 404) break;
+    }
+    return null;
+  }
+  async function refreshCam() {
+    try {
+      const blob = await fetchFrame(false);
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      $("faceCamLive").src = url;
+      if (camUrl) URL.revokeObjectURL(camUrl);
+      camUrl = url;
+    } catch { /* caméra injoignable */ }
+  }
+  function setCamLive(on) {
+    if (camTimer) { clearInterval(camTimer); camTimer = null; }
+    if (on && !$("tab-faces").hidden) {
+      refreshCam();
+      camTimer = setInterval(refreshCam, 700);
+    }
+  }
+
+  function addCaptureThumb(blob) {
+    const li = document.createElement("li");
+    const img = document.createElement("img");
+    img.alt = "capture";
+    img.src = URL.createObjectURL(blob);
+    const tag = document.createElement("span");
+    tag.textContent = "…";
+    li.append(img, tag);
+    const strip = $("faceCaptures");
+    strip.prepend(li);
+    while (strip.children.length > 10) {
+      const last = strip.lastElementChild;
+      const lastImg = last.querySelector("img");
+      if (lastImg) URL.revokeObjectURL(lastImg.src);
+      last.remove();
+    }
+    return { li, tag };
+  }
+
+  let lastCaptureName = "";
+  $("faceCaptureBtn").addEventListener("click", async () => {
+    const btn = $("faceCaptureBtn");
+    const msg = $("faceCaptureMsg");
+    const name = $("faceName").value.trim();
+    if (!name) {
+      msg.textContent = "Saisir un nom (ou choisir une personne) avant de capturer.";
+      $("faceName").focus();
+      return;
+    }
+    if (name.toLowerCase() !== lastCaptureName.toLowerCase()) {
+      $("faceCaptures").replaceChildren();
+      lastCaptureName = name;
+    }
+    btn.disabled = true;
+    msg.textContent = "Capture…";
+    try {
+      const blob = await fetchFrame(true);
+      if (!blob) { msg.textContent = "Caméra indisponible."; return; }
+      const thumb = addCaptureThumb(blob);
+      const body = new FormData();
+      body.append("name", name);
+      body.append("single", "1");
+      body.append("photo", blob, "capture.jpg");
+      const r = await fetch("/api/v1/faces", { method: "POST", credentials: "same-origin", body });
+      if (r.status === 401) { location.href = "/login"; return; }
+      let payload = {};
+      try { payload = await r.json(); } catch { /* réponse vide */ }
+      if (!r.ok) {
+        thumb.li.classList.add("is-bad");
+        thumb.tag.textContent = payload.faces > 1 ? `${payload.faces} visages` : "refusée";
+        msg.textContent = payload.error || "Capture refusée.";
+        return;
+      }
+      thumb.li.classList.add("is-ok");
+      thumb.tag.textContent = `#${payload.samples}`;
+      msg.textContent = `${payload.name} · photo ajoutée · ${payload.samples} photo(s) au total.`;
+      await loadPeople();
+    } catch {
+      msg.textContent = "Échec de la capture.";
+    } finally {
+      btn.disabled = false;
+    }
   });
 
   loadFaceAlarm();

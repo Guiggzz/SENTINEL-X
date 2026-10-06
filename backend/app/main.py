@@ -352,7 +352,7 @@ if STATIC_DIR.exists():
 # Le flux camera passe par l'API : il faut etre connecte (cookie de session) pour le voir,
 # que l'on passe par Caddy (https://.../cam/) ou directement par le port 3000.
 _CAM_BASE = os.getenv("VISION_BASE_URL", "http://172.22.0.1:8081")
-_CAM_ALLOWED = {"snapshot.jpg": "image/jpeg", "health": "application/json"}
+_CAM_ALLOWED = {"snapshot.jpg": "image/jpeg", "snapshot_raw.jpg": "image/jpeg", "health": "application/json"}
 
 
 @app.get("/cam/{name}")

@@ -514,6 +514,34 @@ button.switch.armed:hover { background: var(--accent); border-color: var(--accen
 }
 .face-list .who { font-weight: 500; }
 .face-list .meta { display: block; color: var(--muted); font-family: var(--mono); font-size: 11px; margin-top: 2px; }
+.face-hint { color: var(--muted); font-size: 11px; font-weight: 400; margin: 0; }
+.face-capture { display: grid; grid-template-columns: 200px 1fr; gap: 10px; align-items: start; }
+.face-cam {
+  width: 200px;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  display: block;
+}
+.face-capture-side { display: grid; gap: 6px; align-content: start; }
+.face-capture-side .feedback { margin-top: 0; }
+.face-captures { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.face-captures:empty { display: none; }
+.face-captures li { width: 64px; font-family: var(--mono); font-size: 10px; color: var(--muted); text-align: center; }
+.face-captures img {
+  width: 64px;
+  height: 48px;
+  object-fit: cover;
+  display: block;
+  border: 1px solid var(--rule-strong);
+  background: var(--surface);
+}
+.face-captures li.is-ok img { border-color: var(--ok-dot); }
+.face-captures li.is-bad img { border-color: var(--accent); opacity: 0.6; }
+.face-captures li.is-bad { color: var(--accent); }
+.face-list .actions { display: flex; gap: 5px; }
+@media (max-width: 520px) { .face-capture { grid-template-columns: 1fr; } }
 .face-empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
 @media (max-width: 980px) {
   .tabs { padding: 0 12px; }

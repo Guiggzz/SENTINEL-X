@@ -15,7 +15,7 @@ from typing import Any
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-from face_api import enroll_images, parse_multipart
+from face_api import enroll_images, parse_multipart_opts
 from face_engine import FaceEngine
 from face_gallery import Gallery
 
@@ -109,6 +109,7 @@ class CameraWorker:
         self._thread: threading.Thread | None = None
         self._model: YOLO | None = None
         self._last_boxes: list[tuple[int, int, int, int, float, str]] = []
+        self._raw_frame = None  # derniere trame brute (enrolement par capture)
         self._person_state = False  # currently considered "person present"
         self._person_since: float | None = None  # when count first became >0 or ==0
         self._pending_present: bool | None = None
@@ -171,6 +172,15 @@ class CameraWorker:
     def get_jpeg(self) -> bytes | None:
         with self._lock:
             return self._jpeg
+
+    def get_raw_jpeg(self) -> bytes | None:
+        """Trame brute (sans cadres ni bandeau), pour l'enrôlement par capture."""
+        with self._lock:
+            frame = self._raw_frame
+        if frame is None:
+            return None
+        ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 92])
+        return buf.tobytes() if ok else None
 
     def _open_camera(self) -> cv2.VideoCapture | None:
         src = os.path.realpath(CAMERA_DEVICE) if CAMERA_DEVICE else CAMERA_INDEX
@@ -438,6 +448,7 @@ class CameraWorker:
                 now = time.monotonic()
                 with self._lock:
                     self._camera_ok = True
+                    self._raw_frame = frame
 
                 if now - last_infer >= INFER_INTERVAL:
                     t0 = time.monotonic()
@@ -580,6 +591,13 @@ class VisionHandler(BaseHTTPRequestHandler):
                 return
             self._send_bytes(200, jpeg, "image/jpeg")
             return
+        if path == "/snapshot_raw.jpg":
+            jpeg = WORKER.get_raw_jpeg()
+            if not jpeg:
+                self._send_json(503, {"error": "no frame yet"})
+                return
+            self._send_bytes(200, jpeg, "image/jpeg")
+            return
         if path in ("/stream.mjpg", "/stream", "/"):
             self._stream_mjpeg()
             return
@@ -620,11 +638,12 @@ class VisionHandler(BaseHTTPRequestHandler):
         if body is None:
             return
         try:
-            name, photos = parse_multipart(self.headers.get("Content-Type", ""), body)
+            name, photos, opts = parse_multipart_opts(self.headers.get("Content-Type", ""), body)
         except ValueError as exc:
             self._send_json(400, {"error": str(exc)})
             return
-        code, payload = enroll_images(WORKER._gallery, WORKER._face_engine, name, photos)  # noqa: SLF001
+        single = opts.get("single", "") in ("1", "true", "yes")
+        code, payload = enroll_images(WORKER._gallery, WORKER._face_engine, name, photos, single=single)  # noqa: SLF001
         self._send_json(code, payload)
 
     def do_DELETE(self) -> None:  # noqa: N802

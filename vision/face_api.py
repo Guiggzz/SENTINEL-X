@@ -13,6 +13,12 @@ _MAX_PHOTO_BYTES = 4_000_000
 
 
 def parse_multipart(content_type: str, body: bytes) -> tuple[str, list[bytes]]:
+    name, photos, _opts = parse_multipart_opts(content_type, body)
+    return name, photos
+
+
+def parse_multipart_opts(content_type: str, body: bytes) -> tuple[str, list[bytes], dict[str, str]]:
+    """Comme parse_multipart, plus les champs texte annexes (ex. single=1)."""
     if not content_type or "multipart/" not in content_type.lower():
         raise ValueError("multipart requis")
     raw = f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode() + body
@@ -21,6 +27,7 @@ def parse_multipart(content_type: str, body: bytes) -> tuple[str, list[bytes]]:
         raise ValueError("multipart requis")
     name = ""
     photos: list[bytes] = []
+    opts: dict[str, str] = {}
     for part in msg.iter_parts():
         field = part.get_param("name", header="content-disposition")
         payload = part.get_payload(decode=True) or b""
@@ -28,10 +35,15 @@ def parse_multipart(content_type: str, body: bytes) -> tuple[str, list[bytes]]:
             name = payload.decode("utf-8", "replace")
         elif field in _PHOTO_FIELDS and payload:
             photos.append(payload)
-    return name, photos
+        elif field in ("single",):
+            opts[field] = payload.decode("utf-8", "replace").strip()
+    return name, photos, opts
 
 
-def enroll_images(gallery: Gallery, embedder, name: str, images: list[bytes]) -> tuple[int, dict]:
+def enroll_images(
+    gallery: Gallery, embedder, name: str, images: list[bytes], single: bool = False
+) -> tuple[int, dict]:
+    """single=True (capture caméra) : refuse une image contenant plusieurs visages."""
     if not getattr(embedder, "ready", False):
         return 503, {"error": "modèles de reconnaissance absents"}
     if not (name or "").strip():
@@ -44,6 +56,9 @@ def enroll_images(gallery: Gallery, embedder, name: str, images: list[bytes]) ->
         det = embedder.embed_bytes(blob)
         if det is None or getattr(det, "embedding", None) is None:
             continue
+        faces = int(getattr(det, "faces", 1) or 1)
+        if single and faces > 1:
+            return 422, {"error": f"{faces} visages de taille comparable. Une seule personne au premier plan.", "faces": faces}
         embeddings.append(det.embedding)
         thumbs.append(det.thumb_jpeg or b"")
     if not embeddings:

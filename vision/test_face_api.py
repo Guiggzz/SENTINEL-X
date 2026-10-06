@@ -8,7 +8,7 @@ import tempfile
 
 import numpy as np
 
-from face_api import enroll_images, parse_multipart
+from face_api import enroll_images, parse_multipart, parse_multipart_opts
 from face_gallery import Gallery
 
 
@@ -78,6 +78,39 @@ class EnrollTests(unittest.TestCase):
     def test_blank_name(self) -> None:
         code, _body = enroll_images(self.gallery, _Embedder(), "  ", [b"img"])
         self.assertEqual(code, 422)
+
+    def test_single_rejects_multiple_faces(self) -> None:
+        emb = _Embedder()
+        orig = emb.embed_bytes
+
+        def two_faces(data: bytes):
+            det = orig(data)
+            det.faces = 2
+            return det
+
+        emb.embed_bytes = two_faces
+        code, body = enroll_images(self.gallery, emb, "Alice", [b"img"], single=True)
+        self.assertEqual(code, 422)
+        self.assertEqual(body.get("faces"), 2)
+        code, _body = enroll_images(self.gallery, emb, "Alice", [b"img"])
+        self.assertEqual(code, 201)
+
+    def test_same_name_appends(self) -> None:
+        enroll_images(self.gallery, _Embedder(), "Alice", [b"a"])
+        code, body = enroll_images(self.gallery, _Embedder(), "alice", [b"b"], single=True)
+        self.assertEqual(code, 201)
+        self.assertEqual(body["samples"], 2)
+        self.assertEqual(self.gallery.count(), 1)
+
+    def test_parse_single_opt(self) -> None:
+        body = (
+            b"--b\r\nContent-Disposition: form-data; name=\"name\"\r\n\r\nBob\r\n"
+            b"--b\r\nContent-Disposition: form-data; name=\"single\"\r\n\r\n1\r\n"
+            b"--b\r\nContent-Disposition: form-data; name=\"photo\"; filename=\"c.jpg\"\r\n"
+            b"Content-Type: image/jpeg\r\n\r\nJPEG\r\n--b--\r\n"
+        )
+        name, photos, opts = parse_multipart_opts("multipart/form-data; boundary=b", body)
+        self.assertEqual((name, photos, opts.get("single")), ("Bob", [b"JPEG"], "1"))
 
 
 if __name__ == "__main__":

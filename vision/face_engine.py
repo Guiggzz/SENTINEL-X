@@ -21,6 +21,7 @@ class Detection:
     box: tuple[int, int, int, int]
     score: float
     thumb_jpeg: bytes | None = None
+    faces: int = 1
 
 
 class FaceEngine:
@@ -84,6 +85,10 @@ class FaceEngine:
             return None
         best = max(found, key=lambda det: det.box[2] * det.box[3])
         best.thumb_jpeg = self._thumb(image, best.box)
+        # Visages "concurrents" : taille comparable au principal (>= 25 % de sa surface).
+        # Les petits visages d'arrière-plan sont ignorés (le plus grand est retenu).
+        area = max(best.box[2] * best.box[3], 1)
+        best.faces = sum(1 for det in found if det.box[2] * det.box[3] >= 0.25 * area)
         return best
 
     def _thumb(self, image: np.ndarray, box: tuple[int, int, int, int]) -> bytes:
