@@ -202,7 +202,8 @@ services:
     security_opt: ["no-new-privileges:true"]
     mem_limit: 128m
     cpus: 0.50
-    pids_limit: 100
+    # Caddy (Go) tourne déjà vers ~100 threads : à 100 le wget du healthcheck ne pouvait plus forker
+    pids_limit: 200
     logging: *default-logging
     networks: [sentinel-front]
     healthcheck:
