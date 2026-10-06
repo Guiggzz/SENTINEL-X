@@ -18,12 +18,15 @@
     });
   });
 
-  const toggle = $("faceAlarmToggle");
+  const toggles = [["faceAlarmToggle", "faceAlarmState"], ["faceAlarmToggle2", "faceAlarmState2"]]
+    .map(([b, st]) => [$(b), $(st)]).filter(([b, st]) => b && st);
   function applyFaceAlarm(enabled) {
-    toggle.setAttribute("aria-pressed", enabled ? "true" : "false");
-    toggle.classList.toggle("armed", !!enabled);
-    $("faceAlarmState").textContent = enabled ? "ARMÉE" : "DÉSARMÉE";
-    $("faceAlarmState").className = "toggle-state" + (enabled ? " armed" : "");
+    toggles.forEach(([b, st]) => {
+      b.setAttribute("aria-pressed", enabled ? "true" : "false");
+      b.classList.toggle("armed", !!enabled);
+      st.textContent = enabled ? "ARMÉE" : "DÉSARMÉE";
+      st.className = "toggle-state" + (enabled ? " armed" : "");
+    });
   }
   window.applyFaceAlarm = applyFaceAlarm;
 
@@ -32,9 +35,10 @@
     if (r.status === 401) { location.href = "/login"; return; }
     if (r.ok) applyFaceAlarm((await r.json()).enabled);
   }
-  toggle.addEventListener("click", async () => {
-    const next = toggle.getAttribute("aria-pressed") !== "true";
-    toggle.disabled = true;
+  async function onFaceToggle(ev) {
+    const btn = ev.currentTarget;
+    const next = btn.getAttribute("aria-pressed") !== "true";
+    toggles.forEach(([b]) => { b.disabled = true; });
     try {
       const r = await fetch("/api/v1/settings/face-alarm", {
         method: "PUT",
@@ -45,9 +49,10 @@
       if (r.status === 401) { location.href = "/login"; return; }
       if (r.ok) applyFaceAlarm((await r.json()).enabled);
     } finally {
-      toggle.disabled = false;
+      toggles.forEach(([b]) => { b.disabled = false; });
     }
-  });
+  }
+  toggles.forEach(([b]) => b.addEventListener("click", onFaceToggle));
 
   function renderStatus(s) {
     setPresent(s);

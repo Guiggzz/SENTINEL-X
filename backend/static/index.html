@@ -129,6 +129,11 @@
           <span id="personState" class="toggle-state">—</span>
           <button id="personToggle" class="switch" aria-pressed="false" aria-label="Armer / désarmer l'alarme présence"><i></i></button>
         </div>
+        <div class="toggle-row">
+          <span class="toggle-label">Alarme reconnaissance <span class="h-note">non identifié après le bip → sirène « intrus »</span></span>
+          <span id="faceAlarmState2" class="toggle-state">—</span>
+          <button id="faceAlarmToggle2" class="switch" aria-pressed="false" aria-label="Armer ou désarmer l'alarme reconnaissance"><i></i></button>
+        </div>
         <div class="sources" id="alarmSources">
           <span class="sources-title">Sources d'alarme</span>
           <label class="src"><input type="checkbox" data-src="pir" checked /> PIR (présence)</label>
@@ -182,7 +187,7 @@
       <article class="panel">
         <h2>Alarme et enrôlement</h2>
         <div class="toggle-row">
-          <span class="toggle-label">Alarme visage inconnu</span>
+          <span class="toggle-label">Alarme reconnaissance</span>
           <span id="faceAlarmState" class="toggle-state">—</span>
           <button id="faceAlarmToggle" class="switch" aria-pressed="false" aria-label="Armer ou désarmer l'alarme visage inconnu"><i></i></button>
         </div>
@@ -223,6 +228,6 @@
   </footer>
   <script src="/static/app.js?v=13"></script>
   <script src="/static/ai.js?v=13"></script>
-  <script src="/static/faces.js?v=14"></script>
+  <script src="/static/faces.js?v=15"></script>
 </body>
 </html>
