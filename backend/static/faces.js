@@ -50,6 +50,7 @@
   });
 
   function renderStatus(s) {
+    setPresent(s);
     const ready = s && s.face_ready !== false && s.status !== "unavailable";
     let text = "Reconnaissance indisponible";
     let kind = "off";
@@ -132,47 +133,115 @@
       list.appendChild(emptyItem("Aucune personne enrôlée."));
       return;
     }
-    for (const person of people) {
-      const li = document.createElement("li");
-      const img = document.createElement("img");
-      img.alt = "";
-      img.src = `/api/v1/faces/${encodeURIComponent(person.id)}/thumb`;
-      const text = document.createElement("div");
-      const who = document.createElement("span");
-      who.className = "who";
-      who.textContent = person.name || person.id;
-      const meta = document.createElement("span");
-      meta.className = "meta";
-      meta.textContent = `${person.samples || 1} photo(s)`;
-      text.append(who, meta);
-      const del = document.createElement("button");
-      del.type = "button";
-      del.textContent = "Retirer";
-      del.addEventListener("click", async () => {
-        if (!window.confirm(`Retirer ${person.name} de la galerie ?`)) return;
-        del.disabled = true;
-        const r = await fetch(`/api/v1/faces/${encodeURIComponent(person.id)}`, {
-          method: "DELETE",
-          credentials: "same-origin",
-        });
-        if (r.status === 401) { location.href = "/login"; return; }
-        await loadPeople();
-      });
-      const add = document.createElement("button");
-      add.type = "button";
-      add.textContent = "+ Photos";
-      add.title = "Ajouter des photos à cette personne";
-      add.addEventListener("click", () => {
-        $("faceName").value = person.name || person.id;
-        $("faceCaptureMsg").textContent = `${person.name} · ${person.samples || 0} photo(s). Capturer pour en ajouter.`;
-        $("faceCaptureBtn").focus();
-      });
-      const actions = document.createElement("div");
-      actions.className = "actions";
-      actions.append(add, del);
-      li.append(img, text, actions);
-      list.appendChild(li);
+    for (const person of people) list.appendChild(buildBadge(person));
+    applyPresence();
+  }
+
+  // ---- badges d'accès : code stable dérivé de l'identifiant (FNV-1a 32 bits)
+  function badgeCode(key) {
+    let h = 0x811c9dc5;
+    for (const ch of String(key)) {
+      h ^= ch.codePointAt(0);
+      h = Math.imul(h, 0x01000193) >>> 0;
     }
+    return "SX-" + (h % 0x10000).toString(16).toUpperCase().padStart(4, "0");
+  }
+
+  function formatDate(value) {
+    if (!value) return "";
+    const d = new Date(typeof value === "number" && value < 1e12 ? value * 1000 : value);
+    if (Number.isNaN(d.getTime())) return "";
+    const p = (n) => String(n).padStart(2, "0");
+    return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}`;
+  }
+
+  function el(tag, cls, text) {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
+  function buildBadge(person) {
+    const name = person.name || person.id;
+    const samples = person.samples || 0;
+    const li = el("li", "idcard");
+    li.dataset.name = name.toLowerCase();
+
+    const band = el("div", "idcard-band");
+    band.append(el("span", null, "SENTINEL-X"), el("span", null, "Accès autorisé"));
+
+    const photo = el("div", "idcard-photo");
+    const img = document.createElement("img");
+    img.alt = `Photo d'enrôlement de ${name}`;
+    img.loading = "lazy";
+    img.src = `/api/v1/faces/${encodeURIComponent(person.id)}/thumb`;
+    photo.appendChild(img);
+
+    const info = el("div", "idcard-info");
+    info.appendChild(el("p", "idcard-name", name));
+    const fields = el("dl", "idcard-fields");
+    const rows = [
+      ["ID", badgeCode(person.id || name)],
+      ["Niveau", "Opérateur"],
+      ["Photos", String(samples).padStart(2, "0")],
+    ];
+    const enrolled = formatDate(person.created_at);
+    if (enrolled) rows.push(["Enrôlé", enrolled]);
+    for (const [k, v] of rows) fields.append(el("dt", null, k), el("dd", null, v));
+    info.appendChild(fields);
+
+    const body = el("div", "idcard-body");
+    body.append(photo, info);
+
+    const add = el("button", "idcard-act", "+ Photos");
+    add.type = "button";
+    add.title = "Ajouter des photos à cette personne";
+    add.addEventListener("click", () => {
+      $("faceName").value = name;
+      $("faceCaptureMsg").textContent = `${name} · ${samples} photo(s). Capturer pour en ajouter.`;
+      $("faceCaptureBtn").focus();
+    });
+    const del = el("button", "idcard-act danger", "Retirer");
+    del.type = "button";
+    del.addEventListener("click", async () => {
+      if (!window.confirm(`Retirer ${name} de la galerie ?`)) return;
+      del.disabled = true;
+      const r = await fetch(`/api/v1/faces/${encodeURIComponent(person.id)}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+      if (r.status === 401) { location.href = "/login"; return; }
+      await loadPeople();
+    });
+    const actions = el("div", "idcard-actions");
+    actions.append(add, del);
+    const code = el("span", "idcard-code");
+    code.setAttribute("aria-hidden", "true");
+    const foot = el("div", "idcard-foot");
+    foot.append(code, actions);
+
+    const tag = el("span", "idcard-present", "Présent");
+    li.append(band, body, foot, tag);
+    return li;
+  }
+
+  // nom(s) reconnu(s) en direct -> badge surligné
+  let presentNames = new Set();
+  function applyPresence() {
+    document.querySelectorAll("#faceList .idcard").forEach((card) => {
+      card.classList.toggle("is-present", presentNames.has(card.dataset.name));
+    });
+  }
+  function setPresent(s) {
+    const next = new Set();
+    if (s && s.status === "known" && s.name) {
+      for (const n of String(s.name).split(",")) if (n.trim()) next.add(n.trim().toLowerCase());
+    }
+    const same = next.size === presentNames.size && [...next].every((n) => presentNames.has(n));
+    if (same) return;
+    presentNames = next;
+    applyPresence();
   }
 
   $("faceForm").addEventListener("submit", async (ev) => {
