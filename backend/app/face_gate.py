@@ -50,8 +50,8 @@ def identity_action(state: str, face_alarm_on: bool, person_alarm_on: bool) -> s
     """Portillon d'identification : identify_beep | confirm | alarm | notify | ignore.
 
     identify_start -> 2 bips courts « identifiez-vous » ; identified -> bip court + LED verte
-    (et coupe la sirène du portillon) ; intrusion -> sirène seulement si une alarme est armée
-    (alarme visage OU alarme présence du tableau de bord), sinon simple journalisation.
+    (et coupe la sirène du portillon) ; intrusion -> sirène TOUJOURS
+    (même si les alarmes du tableau de bord sont désarmées).
     """
     st = (state or "").lower()
     if st == "identify_start":
@@ -59,7 +59,7 @@ def identity_action(state: str, face_alarm_on: bool, person_alarm_on: bool) -> s
     if st == "identified":
         return "confirm"
     if st in {"intrusion", "intrusion_spoof"}:
-        return "alarm" if (face_alarm_on or person_alarm_on) else "notify"
+        return "alarm"  # non identifié après la fenêtre : sirène toujours, même désarmé
     if st == "identify_end":
         return "end"
     return "ignore"

@@ -54,10 +54,11 @@ class IdentityGateTests(unittest.TestCase):
     def test_identified_confirms(self) -> None:
         self.assertEqual(identity_action("identified", True, False), "confirm")
 
-    def test_intrusion_rings_if_face_or_person_alarm_armed(self) -> None:
+    def test_intrusion_always_rings_even_when_disarmed(self) -> None:
         self.assertEqual(identity_action("intrusion", True, False), "alarm")
         self.assertEqual(identity_action("intrusion_spoof", False, True), "alarm")
-        self.assertEqual(identity_action("intrusion", False, False), "notify")
+        self.assertEqual(identity_action("intrusion", False, False), "alarm")
+        self.assertEqual(identity_action("intrusion_spoof", False, False), "alarm")
 
     def test_identity_states(self) -> None:
         self.assertEqual(IDENTITY_STATES, {"identify_start", "identified", "intrusion", "intrusion_spoof", "identify_end"})
