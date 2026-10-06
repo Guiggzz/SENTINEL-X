@@ -280,33 +280,36 @@
     });
   });
 
-  // Caméra : trames JPEG tirées seulement quand l'onglet Caméra est affiché (économie CPU
-  // côté navigateur et service vision). La capture d'enrôlement (Visages) passe par
-  // /cam/snapshot_raw.jpg côté serveur et ne dépend pas de cette image.
+  // Caméra : une seule boucle de trames JPEG, qui alimente l'image visible :
+  // aperçu de la Supervision (500 ms) ou onglet Caméra (250 ms). En pause sur les autres
+  // onglets et quand la page est masquée. La capture d'enrôlement (Visages) passe par
+  // /cam/snapshot_raw.jpg côté serveur et ne dépend pas de ces images.
   function setupCamera() {
     const params = new URLSearchParams(location.search);
     try { localStorage.removeItem("sentinelCamUrl"); } catch (_) {}
     const snap = params.get("cam") || (location.origin + "/cam/snapshot.jpg");
-    const img = el("camFeed");
-    const fallback = el("camFallback");
+    const targets = {
+      cam: { img: el("camFeed"), fallback: el("camFallback"), period: 250 },
+      ops: { img: el("camPreview"), fallback: el("camPreviewFallback"), period: 500 },
+    };
+    let current = null;   // cible active (ou null = en pause)
     let timer = null;
     let fails = 0;
     let objectUrl = null;
-    let active = false;
     let gen = 0;
 
-    function showFallback(msg) {
-      img.style.display = "none";
-      fallback.style.display = "grid";
-      fallback.textContent = msg || "Flux indisponible";
+    function showFallback(t, msg) {
+      t.img.style.display = "none";
+      t.fallback.style.display = "grid";
+      t.fallback.textContent = msg || "Flux indisponible";
     }
-    function showFeed() {
-      img.style.display = "block";
-      fallback.style.display = "none";
+    function showFeed(t) {
+      t.img.style.display = "block";
+      t.fallback.style.display = "none";
     }
 
-    async function tick(g) {
-      if (!active || g !== gen) return;
+    async function tick(g, t) {
+      if (g !== gen) return;
       try {
         const r = await fetch(snap + (snap.includes("?") ? "&" : "?") + "t=" + Date.now(), {
           cache: "no-store",
@@ -314,45 +317,48 @@
         });
         if (!r.ok) throw new Error("HTTP " + r.status);
         const blob = await r.blob();
-        if (!active || g !== gen) return;
+        if (g !== gen) return;
         if (!blob || blob.size < 100) throw new Error("image vide");
         if (objectUrl) URL.revokeObjectURL(objectUrl);
         objectUrl = URL.createObjectURL(blob);
         await new Promise((resolve, reject) => {
-          img.onload = () => resolve();
-          img.onerror = () => reject(new Error("decode"));
-          img.src = objectUrl;
+          t.img.onload = () => resolve();
+          t.img.onerror = () => reject(new Error("decode"));
+          t.img.src = objectUrl;
         });
-        if (!active || g !== gen) return;
+        if (g !== gen) return;
         fails = 0;
-        showFeed();
-        timer = setTimeout(() => tick(g), 250);
+        showFeed(t);
+        timer = setTimeout(() => tick(g, t), t.period);
       } catch (err) {
-        if (!active || g !== gen) return;
+        if (g !== gen) return;
         fails += 1;
-        showFallback("Flux indisponible (" + (err && err.message ? err.message : err) + ")");
-        timer = setTimeout(() => tick(g), fails >= 3 ? 3000 : 800);
+        showFallback(t, "Flux indisponible (" + (err && err.message ? err.message : err) + ")");
+        timer = setTimeout(() => tick(g, t), fails >= 3 ? 3000 : 800);
       }
     }
 
-    function setActive(on) {
-      if (on === active) return;
-      active = on;
+    // name = onglet affiché ; la boucle suit la cible correspondante, s'il y en a une
+    function follow(name) {
+      const next = document.hidden ? null : (targets[name] || null);
+      if (next === current) return;
       gen += 1;
       clearTimeout(timer);
       timer = null;
-      if (on) {
+      if (current) {
+        current.img.removeAttribute("src");
+        showFallback(current, "Flux en pause");
+      }
+      if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+      current = next;
+      if (current) {
         fails = 0;
-        tick(gen);
-      } else {
-        img.removeAttribute("src");
-        if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
-        showFallback("Flux en pause");
+        tick(gen, current);
       }
     }
 
-    showFallback("Flux en pause");
-    return { setActive };
+    Object.values(targets).forEach((t) => showFallback(t, "Flux en pause"));
+    return { follow };
   }
 
   // ---- onglets : data-tab="x" -> section #tab-x ; l'onglet courant est gardé dans l'ancre (#cam, #log…)
@@ -381,8 +387,13 @@
   window.addEventListener("hashchange", () => showTab(location.hash.slice(1), false));
 
   const camera = setupCamera();
+  let currentTab = "ops";
+  document.addEventListener("visibilitychange", () => camera.follow(currentTab));
+  const camLink = document.querySelector(".cam-link");
+  if (camLink) camLink.addEventListener("click", (ev) => { ev.preventDefault(); showTab("cam", true); });
   window.addEventListener("sentinel:tab", (ev) => {
-    camera.setActive(ev.detail === "cam");
+    currentTab = ev.detail;
+    camera.follow(ev.detail);
     // graphiques créés pendant que la page était masquée : recalcul de taille à l'affichage
     if (ev.detail === "ops") [chartTemp, chartHum, chartGas].forEach((c) => c.resize());
   });

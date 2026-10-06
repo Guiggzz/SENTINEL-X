@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SENTINEL-X · EPSI Workshop</title>
-  <link rel="stylesheet" href="/static/style.css?v=15" />
+  <link rel="stylesheet" href="/static/style.css?v=17" />
   <script src="/static/vendor/chart.umd.min.js"></script>
 </head>
 <body>
@@ -115,6 +115,15 @@
         <p id="faceStatusLine" class="mco-sub">Visage —</p>
         <p class="mco-sub">objectif &lt; 100 ms</p>
       </article>
+      <article class="panel cam-preview-panel">
+        <h2>Caméra <span class="h-note">aperçu · 2 img/s</span></h2>
+        <a class="cam-link" href="#cam" title="Ouvrir l'onglet Caméra">
+          <span class="cam-wrap cam-preview">
+            <img id="camPreview" alt="Aperçu caméra" width="782" height="440" />
+            <span id="camPreviewFallback" class="cam-fallback">Flux en pause</span>
+          </span>
+        </a>
+      </article>
       <article class="panel mco-panel">
         <h2>MCO hôte <span class="h-note">/proc lu depuis sentinel-api</span></h2>
         <div class="mco-bars">
@@ -150,12 +159,13 @@
   <section id="tab-faces" class="layout tab-page faces-page" hidden>
     <p class="face-help">
       Photos nettes, visage de face, une personne par image. Visage connu : pas de sirène.
-      Visage inconnu : sirène « intrus » et LED rouge, seulement si l'alarme est armée.
+      Visage inconnu : sirène « intrus » et LED rouge, seulement si l'alarme reconnaissance est armée.
       Tant que les modèles sont chargés, cette alarme remplace l'alarme personne de la caméra
       (le PIR reste indépendant). Seuil cosinus par défaut 0,36 — démo d'atelier, pas une biométrie de production.
       Portillon : une personne détectée déclenche deux bips « identifiez-vous » ; sans visage connu et vivant
-      en 8 s (inconnu, pas de visage, photo ou écran = « leurre »), c'est une intrusion : sirène si une alarme
-      est armée, et alerte Discord avec l'image.
+      en 5 s (inconnu, pas de visage, photo ou écran = « leurre »), c'est une intrusion : sirène « intrus »
+      seulement si l'alarme reconnaissance est armée ; désarmée, il n'y a que les bips, l'alerte Discord
+      avec l'image et l'entrée au journal.
     </p>
     <div class="faces-grid">
       <article class="panel">
@@ -242,8 +252,8 @@
   <footer>
     EPSI Workshop · SENTINEL-X · MQTT / WebSocket
   </footer>
-  <script src="/static/app.js?v=14"></script>
+  <script src="/static/app.js?v=15"></script>
   <script src="/static/ai.js?v=14"></script>
-  <script src="/static/faces.js?v=16"></script>
+  <script src="/static/faces.js?v=17"></script>
 </body>
 </html>

@@ -102,7 +102,7 @@
       text = `Autorisé : ${id.name || "?"}`;
       cls += " authorized";
     } else if (id && id.state === "intrusion") {
-      text = id.kind === "spoof" ? "Intrusion · leurre (photo/écran)" : `Intrusion · non identifié après ${Number(id.window_s) || 8} s`;
+      text = id.kind === "spoof" ? "Intrusion · leurre (photo/écran)" : `Intrusion · non identifié après ${Number(id.window_s) || 5} s`;
       cls += " intrusion";
     } else if (id) {
       text = "Portillon · en attente";
